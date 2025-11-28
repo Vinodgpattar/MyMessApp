@@ -1,0 +1,54 @@
+{
+  "expo": {
+    "name": "Mess Management",
+    "slug": "mess-management-mobile",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "userInterfaceStyle": "light",
+    "icon": "./assets/icon.png",
+    "splash": {
+      "image": "./assets/icon.png",
+      "backgroundColor": "#7B2CBF",
+      "resizeMode": "contain"
+    },
+    "assetBundlePatterns": [
+      "**/*"
+    ],
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.messmanagement.mobile"
+    },
+    "android": {
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/icon.png",
+        "backgroundColor": "#7B2CBF"
+      },
+      "package": "com.messmanagement.mobile",
+      "permissions": [
+        "android.permission.CAMERA",
+        "android.permission.RECORD_AUDIO"
+      ]
+    },
+    "web": {},
+    "plugins": [
+      "expo-router",
+      [
+        "expo-splash-screen",
+        {
+          "image": "./assets/icon.png",
+          "resizeMode": "contain",
+          "backgroundColor": "#7B2CBF"
+        }
+      ],
+      "expo-camera",
+      "expo-notifications"
+    ],
+    "scheme": "mess-management",
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "555ef72c-8a56-4803-8b5f-9affb1f62c92"
+      }
+    }
+  }
+}
