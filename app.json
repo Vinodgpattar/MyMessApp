@@ -40,7 +40,12 @@
           "backgroundColor": "#7B2CBF"
         }
       ],
-      "expo-camera",
+      [
+        "expo-camera",
+        {
+          "cameraPermission": "Allow $(PRODUCT_NAME) to access your camera to scan QR codes for attendance."
+        }
+      ],
       "expo-notifications"
     ],
     "scheme": "mess-management",
