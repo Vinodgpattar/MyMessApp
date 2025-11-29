@@ -23,10 +23,7 @@
       "permissions": [
         "android.permission.CAMERA",
         "android.permission.RECORD_AUDIO"
-      ],
-      "gradleProperties": {
-        "kotlinVersion": "1.9.24"
-      }
+      ]
     },
     "web": {},
     "plugins": [
@@ -52,12 +49,20 @@
         {
           "cameraPermission": "Allow $(PRODUCT_NAME) to access your camera to scan QR codes for attendance."
         }
-      ]
+      ],
+      [
+        "expo-build-properties",
+        {
+          "android": {
+            "kotlinVersion": "1.9.24"
+          },
+          "ios": {},
+          "newArchEnabled": false
+        }
+      ],
+      "expo-font"
     ],
     "scheme": "mess-management",
-    "experimental": {
-      "newArchEnabled": false
-    },
     "extra": {
       "router": {},
       "eas": {
