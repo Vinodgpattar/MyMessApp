@@ -37,6 +37,21 @@
         }
       ],
       [
+        "expo-camera",
+        {
+          "cameraPermission": "Allow $(PRODUCT_NAME) to access your camera to scan QR codes for attendance."
+        }
+      ],
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "The app accesses your photos to let you share them.",
+          "cameraPermission": "The app accesses your camera to let you take photos."
+        }
+      ],
+      "expo-notifications",
+      "expo-font",
+      [
         "expo-build-properties",
         {
           "android": {
@@ -45,22 +60,7 @@
           "ios": {},
           "newArchEnabled": false
         }
-      ],
-      [
-        "expo-camera",
-        {
-          "cameraPermission": "Allow $(PRODUCT_NAME) to access your camera to scan QR codes for attendance."
-        }
-      ],
-      "expo-notifications",
-      [
-        "expo-image-picker",
-        {
-          "photosPermission": "The app accesses your photos to let you share them.",
-          "cameraPermission": "The app accesses your camera to let you take photos."
-        }
-      ],
-      "expo-font"
+      ]
     ],
     "scheme": "mess-management",
     "updates": {
