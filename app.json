@@ -23,7 +23,10 @@
       "permissions": [
         "android.permission.CAMERA",
         "android.permission.RECORD_AUDIO"
-      ]
+      ],
+      "gradleProperties": {
+        "kotlinVersion": "1.9.24"
+      }
     },
     "web": {},
     "plugins": [
@@ -52,6 +55,9 @@
       ]
     ],
     "scheme": "mess-management",
+    "experimental": {
+      "newArchEnabled": false
+    },
     "extra": {
       "router": {},
       "eas": {
