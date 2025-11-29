@@ -19,10 +19,6 @@
       "bundleIdentifier": "com.messmanagement.mobile"
     },
     "android": {
-      "adaptiveIcon": {
-        "foregroundImage": "./assets/icon.png",
-        "backgroundColor": "#7B2CBF"
-      },
       "package": "com.messmanagement.mobile",
       "permissions": [
         "android.permission.CAMERA",
@@ -40,17 +36,27 @@
           "backgroundColor": "#7B2CBF"
         }
       ],
+      "expo-notifications",
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "The app accesses your photos to let you share them.",
+          "cameraPermission": "The app accesses your camera to let you take photos."
+        }
+      ],
       [
         "expo-camera",
         {
           "cameraPermission": "Allow $(PRODUCT_NAME) to access your camera to scan QR codes for attendance."
         }
-      ],
-      "expo-notifications"
+      ]
     ],
     "scheme": "mess-management",
     "extra": {
-      "router": {}
+      "router": {},
+      "eas": {
+        "projectId": "9638ea31-1cb0-4587-bb69-fe880ca6c02b"
+      }
     }
   }
 }
