@@ -36,14 +36,6 @@
           "backgroundColor": "#7B2CBF"
         }
       ],
-      "expo-notifications",
-      [
-        "expo-image-picker",
-        {
-          "photosPermission": "The app accesses your photos to let you share them.",
-          "cameraPermission": "The app accesses your camera to let you take photos."
-        }
-      ],
       [
         "expo-camera",
         {
@@ -54,15 +46,32 @@
         "expo-build-properties",
         {
           "android": {
-            "kotlinVersion": "1.9.24"
+            "kotlinVersion": "2.0.21"
           },
           "ios": {},
           "newArchEnabled": false
         }
       ],
+      "expo-notifications",
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "The app accesses your photos to let you share them.",
+          "cameraPermission": "The app accesses your camera to let you take photos."
+        }
+      ],
       "expo-font"
     ],
     "scheme": "mess-management",
+    "updates": {
+      "url": "https://u.expo.dev/9638ea31-1cb0-4587-bb69-fe880ca6c02b",
+      "enabled": true,
+      "checkAutomatically": "ON_LOAD",
+      "fallbackToCacheTimeout": 0
+    },
+    "runtimeVersion": {
+      "policy": "appVersion"
+    },
     "extra": {
       "router": {},
       "eas": {
