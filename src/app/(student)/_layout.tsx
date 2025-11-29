@@ -81,6 +81,7 @@ export default function StudentLayout() {
     <Stack screenOptions={{ headerShown: false }}>
       <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
       <Stack.Screen name="reset-pin" options={{ presentation: 'card' }} />
+      <Stack.Screen name="qr-scanner" options={{ headerShown: false, animation: 'fade' }} />
     </Stack>
   )
 }

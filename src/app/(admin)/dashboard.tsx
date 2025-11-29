@@ -1,4 +1,4 @@
-import { View, StyleSheet, ScrollView, RefreshControl } from 'react-native'
+import { View, StyleSheet, ScrollView, RefreshControl, Alert } from 'react-native'
 import { Text, Button } from 'react-native-paper'
 import { useAuth } from '@/context/AuthContext'
 import { useRouter } from 'expo-router'
@@ -26,7 +26,15 @@ export default function AdminDashboard() {
       await signOut()
       router.replace('/(auth)/admin-login')
     } catch (error) {
-      // Logout error - silently handle
+      // CRITICAL FIX: Show error feedback instead of silent failure
+      Alert.alert(
+        'Logout Error',
+        'Failed to logout. Please try again.',
+        [
+          { text: 'Cancel', style: 'cancel' },
+          { text: 'Retry', onPress: handleLogout },
+        ]
+      )
     }
   }
 

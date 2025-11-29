@@ -1,27 +1,22 @@
-import React, { useState, useCallback } from 'react'
-import { View, StyleSheet, ScrollView, ActivityIndicator as RNActivityIndicator, Text as RNText, Modal as RNModal, RefreshControl } from 'react-native'
-import { Text, Card, Button, ActivityIndicator, Modal, Chip } from 'react-native-paper'
+import React, { useState } from 'react'
+import { View, StyleSheet, ScrollView, RefreshControl } from 'react-native'
+import { Text, Card, Button, ActivityIndicator, Chip } from 'react-native-paper'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
+import { useRouter } from 'expo-router'
 import { MaterialCommunityIcons } from '@expo/vector-icons'
 import { useAuth } from '@/context/AuthContext'
 import { getStudentByUserId } from '@/lib/students'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { getCurrentMeal, markAttendanceFromQR, MarkAttendanceResult } from '@/lib/qr-attendance'
+import { getCurrentMeal } from '@/lib/qr-attendance'
 import { supabase } from '@/lib/supabase'
-import { QRScanner } from '@/components/qr-scanner/QRScanner'
-import { QRResultModal } from '@/components/qr-scanner/QRResultModal'
 import { format } from 'date-fns'
 
 export default function StudentAttendanceScreen() {
   const insets = useSafeAreaInsets()
   const { user } = useAuth()
+  const router = useRouter()
   const queryClient = useQueryClient()
   
-  // QR Scanner state
-  const [showScanner, setShowScanner] = useState(false)
-  const [loading, setLoading] = useState(false)
-  const [result, setResult] = useState<MarkAttendanceResult | null>(null)
-  const [showResult, setShowResult] = useState(false)
   const [refreshing, setRefreshing] = useState(false)
   const [historyFilter, setHistoryFilter] = useState<'week' | 'month' | 'all'>('week')
 
@@ -136,46 +131,6 @@ export default function StudentAttendanceScreen() {
   const possibleMeals = totalDays * 3 // Assuming 3 meals per day
   const attendancePercentage = possibleMeals > 0 ? Math.round((totalMeals / possibleMeals) * 100) : 0
 
-  const handleScan = useCallback(async (qrData: string) => {
-    if (!user?.id) {
-      setResult({
-        success: false,
-        message: 'User not authenticated. Please log in again.',
-      })
-      setShowResult(true)
-      return
-    }
-
-    setLoading(true)
-    try {
-      const result = await markAttendanceFromQR(user.id)
-      setResult(result)
-      setShowResult(true)
-      await Promise.all([
-        queryClient.invalidateQueries({ queryKey: ['today-attendance', studentData?.id] }),
-        queryClient.invalidateQueries({ queryKey: ['attendance-history', studentData?.id] }),
-      ])
-    } catch (error) {
-      setResult({
-        success: false,
-        message: error instanceof Error ? error.message : 'Unable to mark attendance. Please try again.',
-      })
-      setShowResult(true)
-    } finally {
-      setLoading(false)
-    }
-  }, [user?.id, studentData?.id, queryClient])
-
-  const handleCloseScanner = useCallback(() => {
-    setShowScanner(false)
-  }, [])
-
-  const handleCloseResult = useCallback(() => {
-    setShowResult(false)
-    setResult(null)
-    setShowScanner(false)
-  }, [])
-
   return (
     <View style={styles.container}>
       <View style={[styles.header, { paddingTop: insets.top + 8 }]}>
@@ -289,7 +244,7 @@ export default function StudentAttendanceScreen() {
             )}
             <Button
               mode="contained"
-              onPress={() => setShowScanner(true)}
+              onPress={() => router.push('/(student)/qr-scanner')}
               style={styles.scanButton}
               buttonColor="#7B2CBF"
               icon="qrcode-scan"
@@ -477,29 +432,6 @@ export default function StudentAttendanceScreen() {
         </Card>
         </ScrollView>
       )}
-
-      {/* QR Scanner Modal - Using React Native Modal to avoid navigation issues */}
-      {showScanner && (
-        <RNModal
-          visible={showScanner}
-          animationType="slide"
-          transparent={false}
-          onRequestClose={handleCloseScanner}
-        >
-          <View style={styles.scannerContainer}>
-            <QRScanner onScan={handleScan} onClose={handleCloseScanner} />
-            {loading && (
-              <View style={styles.loadingOverlay}>
-                <RNActivityIndicator size="large" color="#7B2CBF" />
-                <RNText style={styles.loadingText}>Marking attendance...</RNText>
-              </View>
-            )}
-          </View>
-        </RNModal>
-      )}
-
-      {/* Result Modal */}
-      <QRResultModal visible={showResult} result={result} onClose={handleCloseResult} />
     </View>
   )
 }
@@ -620,28 +552,6 @@ const styles = StyleSheet.create({
   errorText: {
     color: '#EF4444',
     textAlign: 'center',
-  },
-  scannerContainer: {
-    flex: 1,
-    backgroundColor: '#000',
-    position: 'relative',
-  },
-  loadingOverlay: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-    backgroundColor: 'rgba(0, 0, 0, 0.7)',
-    justifyContent: 'center',
-    alignItems: 'center',
-    zIndex: 1000,
-  },
-  loadingText: {
-    color: '#FFFFFF',
-    marginTop: 16,
-    fontSize: 16,
-    fontWeight: '500',
   },
   statsGrid: {
     flexDirection: 'row',

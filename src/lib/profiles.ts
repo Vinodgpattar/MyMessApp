@@ -13,6 +13,8 @@ export interface Profile {
 /**
  * Get user profile by user_id
  * This is the ONLY way to get role - no more user_metadata
+ * 
+ * CRITICAL: Detects duplicate profiles and blocks login for security
  */
 export async function getProfileByUserId(
   userId: string
@@ -20,36 +22,53 @@ export async function getProfileByUserId(
   try {
     logger.debug('getProfileByUserId: Searching for user_id', { userId })
     
+    // Use .select() instead of .maybeSingle() to detect duplicates
     const { data, error } = await supabase
       .from('profiles')
       .select('id, user_id, role, email, createdAt, updatedAt')
       .eq('user_id', userId)
-      .maybeSingle()
 
     if (error) {
       logger.error('getProfileByUserId: Error fetching profile', error as Error)
       return { profile: null, error: new Error(error.message) }
     }
 
-    if (!data) {
+    if (!data || data.length === 0) {
       logger.debug('getProfileByUserId: No profile found')
       return { profile: null, error: null }
     }
 
+    // SECURITY: Detect duplicate profiles - BLOCK login if found
+    if (data.length > 1) {
+      logger.error('getProfileByUserId: DUPLICATE PROFILES DETECTED', {
+        user_id: userId,
+        count: data.length,
+        roles: data.map(p => p.role),
+      })
+      return {
+        profile: null,
+        error: new Error(
+          'Your account has conflicting roles. Please contact administrator to resolve this issue.'
+        ),
+      }
+    }
+
+    const profileData = data[0]
+
     logger.debug('getProfileByUserId: Profile found', {
-      user_id: data.user_id,
-      role: data.role,
-      email: data.email,
+      user_id: profileData.user_id,
+      role: profileData.role,
+      email: profileData.email,
     })
 
     return { 
       profile: {
-        id: data.id,
-        user_id: data.user_id,
-        role: data.role as 'student' | 'admin',
-        email: data.email,
-        createdAt: data.createdAt,
-        updatedAt: data.updatedAt,
+        id: profileData.id,
+        user_id: profileData.user_id,
+        role: profileData.role as 'student' | 'admin',
+        email: profileData.email,
+        createdAt: profileData.createdAt,
+        updatedAt: profileData.updatedAt,
       }, 
       error: null 
     }

@@ -1,4 +1,4 @@
-import { View, StyleSheet, ScrollView } from 'react-native'
+import { View, StyleSheet, ScrollView, Alert } from 'react-native'
 import { Text, Card, List, Divider, Button } from 'react-native-paper'
 import { MaterialCommunityIcons } from '@expo/vector-icons'
 import { useRouter } from 'expo-router'
@@ -15,7 +15,15 @@ export default function MoreScreen() {
       await signOut()
       router.replace('/(auth)/admin-login')
     } catch (error) {
-      // Logout error - silently handle
+      // CRITICAL FIX: Show error feedback instead of silent failure
+      Alert.alert(
+        'Logout Error',
+        'Failed to logout. Please try again.',
+        [
+          { text: 'Cancel', style: 'cancel' },
+          { text: 'Retry', onPress: handleLogout },
+        ]
+      )
     }
   }
 

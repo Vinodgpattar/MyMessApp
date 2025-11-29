@@ -1,9 +1,10 @@
 import React, { useState, useEffect } from 'react'
-import { View, StyleSheet, Alert } from 'react-native'
-import { CameraView, CameraType, useCameraPermissions } from 'expo-camera'
+import { View, StyleSheet, Alert, Linking, ActivityIndicator } from 'react-native'
+import { CameraView, CameraType, useCameraPermissions, Camera } from 'expo-camera'
 import { MaterialCommunityIcons } from '@expo/vector-icons'
 import { Button, Text } from 'react-native-paper'
 import { validateQRCode } from '@/lib/qr-attendance'
+import { logger } from '@/lib/logger'
 
 interface QRScannerProps {
   onScan: (qrData: string) => void
@@ -13,10 +14,41 @@ interface QRScannerProps {
 export function QRScanner({ onScan, onClose }: QRScannerProps) {
   const [permission, requestPermission] = useCameraPermissions()
   const [scanned, setScanned] = useState(false)
+  const [cameraReady, setCameraReady] = useState(false)
+  const [cameraError, setCameraError] = useState<string | null>(null)
+
+  // Manual permission request on mount (FIX for SDK 54)
+  useEffect(() => {
+    const requestCameraPermission = async () => {
+      try {
+        const { status } = await Camera.requestCameraPermissionsAsync()
+        logger.debug('Camera permission status', { status })
+        
+        if (status !== 'granted') {
+          setCameraError('Camera permission not granted')
+          Alert.alert(
+            'Permission Required',
+            'Camera permission is required to scan QR codes. Please enable it in settings.',
+            [
+              { text: 'Cancel', onPress: onClose, style: 'cancel' },
+              { text: 'Open Settings', onPress: () => Linking.openSettings() },
+            ]
+          )
+        }
+      } catch (error) {
+        logger.error('Error requesting camera permission', error as Error)
+        setCameraError('Failed to request camera permission')
+      }
+    }
+
+    requestCameraPermission()
+  }, [onClose])
 
   // Reset when component mounts
   useEffect(() => {
     setScanned(false)
+    setCameraReady(false)
+    setCameraError(null)
   }, [])
 
   const handleBarCodeScanned = ({ data }: { data: string }) => {
@@ -45,12 +77,26 @@ export function QRScanner({ onScan, onClose }: QRScannerProps) {
     )
   }
 
+  if (!permission) {
+    return (
+      <View style={styles.container}>
+        <ActivityIndicator size="large" color="#7B2CBF" />
+        <Text variant="bodyMedium" style={styles.loadingText}>
+          Requesting camera permission...
+        </Text>
+      </View>
+    )
+  }
+
   if (!permission.granted) {
     return (
       <View style={styles.container}>
         <MaterialCommunityIcons name="camera-off" size={64} color="#9CA3AF" />
         <Text variant="titleMedium" style={styles.permissionText}>
           Camera permission required
+        </Text>
+        <Text variant="bodySmall" style={styles.permissionSubtext}>
+          Please grant camera permission to scan QR codes
         </Text>
         <Button mode="contained" onPress={requestPermission} style={styles.button}>
           Grant Permission
@@ -62,13 +108,40 @@ export function QRScanner({ onScan, onClose }: QRScannerProps) {
     )
   }
 
+  if (cameraError) {
+    return (
+      <View style={styles.container}>
+        <MaterialCommunityIcons name="alert-circle" size={64} color="#EF4444" />
+        <Text variant="titleMedium" style={styles.errorText}>
+          Camera Error
+        </Text>
+        <Text variant="bodySmall" style={styles.errorSubtext}>
+          {cameraError}
+        </Text>
+        <Button mode="contained" onPress={onClose} style={styles.button} buttonColor="#EF4444">
+          Close
+        </Button>
+      </View>
+    )
+  }
+
   return (
     <View style={styles.container}>
       <CameraView
         style={styles.camera}
         facing={CameraType.back}
         onBarcodeScanned={scanned ? undefined : handleBarCodeScanned}
-        barcodeScannerSettings={{ barcodeTypes: ['qr'] }}
+        barcodeScannerSettings={{
+          barcodeTypes: ['qr', 'pdf417', 'code128', 'code39', 'codabar']
+        }}
+        onCameraReady={() => {
+          setCameraReady(true)
+          logger.debug('Camera ready')
+        }}
+        onError={(error) => {
+          logger.error('Camera error', error as Error)
+          setCameraError(error.message || 'Camera failed to initialize')
+        }}
       >
         <View style={styles.overlay}>
           <View style={styles.topBar}>
@@ -167,8 +240,30 @@ const styles = StyleSheet.create({
   permissionText: {
     textAlign: 'center',
     marginTop: 16,
-    marginBottom: 24,
+    marginBottom: 8,
     color: '#666',
+  },
+  permissionSubtext: {
+    textAlign: 'center',
+    marginBottom: 24,
+    color: '#999',
+    paddingHorizontal: 32,
+  },
+  loadingText: {
+    marginTop: 16,
+    color: '#FFFFFF',
+  },
+  errorText: {
+    textAlign: 'center',
+    marginTop: 16,
+    marginBottom: 8,
+    color: '#EF4444',
+  },
+  errorSubtext: {
+    textAlign: 'center',
+    marginBottom: 24,
+    color: '#999',
+    paddingHorizontal: 32,
   },
   button: {
     marginVertical: 8,

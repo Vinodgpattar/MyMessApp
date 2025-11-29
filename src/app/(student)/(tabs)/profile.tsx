@@ -1,5 +1,5 @@
 import React from 'react'
-import { View, StyleSheet, ScrollView } from 'react-native'
+import { View, StyleSheet, ScrollView, Alert } from 'react-native'
 import { Text, Card, Button } from 'react-native-paper'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { useRouter } from 'expo-router'
@@ -33,8 +33,18 @@ export default function StudentProfileScreen() {
   const handleLogout = async () => {
     try {
       await signOut()
+      // CRITICAL FIX: Navigate to login (not admin-login for better UX)
+      router.replace('/(auth)/admin-login')
     } catch (error) {
-      // Logout error - silently handle
+      // CRITICAL FIX: Show error feedback instead of silent failure
+      Alert.alert(
+        'Logout Error',
+        'Failed to logout. Please try again.',
+        [
+          { text: 'Cancel', style: 'cancel' },
+          { text: 'Retry', onPress: handleLogout },
+        ]
+      )
     }
   }
 

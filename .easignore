@@ -1,0 +1,4 @@
+# EAS will regenerate these during build
+android/
+ios/
+
