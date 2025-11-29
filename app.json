@@ -50,10 +50,7 @@
     ],
     "scheme": "mess-management",
     "extra": {
-      "router": {},
-      "eas": {
-        "projectId": "555ef72c-8a56-4803-8b5f-9affb1f62c92"
-      }
+      "router": {}
     }
   }
 }
