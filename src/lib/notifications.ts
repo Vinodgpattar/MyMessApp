@@ -154,6 +154,18 @@ function formatNotificationMessage(
 }
 
 /**
+ * Round time down to nearest interval (e.g., 10 minutes)
+ * Example: 7:23 -> 7:20, 7:35 -> 7:30
+ */
+function roundDownToInterval(date: Date, intervalMinutes: number): Date {
+  const rounded = new Date(date)
+  const minutes = rounded.getMinutes()
+  const roundedMinutes = Math.floor(minutes / intervalMinutes) * intervalMinutes
+  rounded.setMinutes(roundedMinutes, 0, 0)
+  return rounded
+}
+
+/**
  * Send attendance notification
  */
 export async function sendAttendanceNotification(
@@ -172,18 +184,19 @@ export async function sendAttendanceNotification(
       return
     }
 
-    // Calculate time window
-    const endTime = now
-    const startTime = new Date(now.getTime() - config.frequency * 60 * 1000)
+    // Round down to nearest interval to get fixed time windows
+    // Example: If frequency is 10 minutes and current time is 7:23, round to 7:20
+    const roundedEndTime = roundDownToInterval(now, config.frequency)
+    const startTime = new Date(roundedEndTime.getTime() - config.frequency * 60 * 1000)
 
-    // Get attendance data
-    const attendanceWindow = await getAttendanceInWindow(startTime, endTime)
+    // Get attendance data for the fixed time window
+    const attendanceWindow = await getAttendanceInWindow(startTime, roundedEndTime)
     const todayStats = await getTodayStats()
 
-    // Format time window
+    // Format time window (using rounded times for consistent display)
     const timeWindow = {
       start: format(startTime, 'h:mm a'),
-      end: format(endTime, 'h:mm a'),
+      end: format(roundedEndTime, 'h:mm a'),
     }
 
     // Format notification message
