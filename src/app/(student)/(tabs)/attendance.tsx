@@ -59,30 +59,37 @@ export default function StudentAttendanceScreen() {
 
   // Calculate date range for history
   const getHistoryDateRange = () => {
+    // Use local date to avoid timezone issues
     const today = new Date()
-    today.setHours(0, 0, 0, 0)
+    const year = today.getFullYear()
+    const month = today.getMonth()
+    const day = today.getDate()
+    
+    // Create date at midnight local time
+    const todayLocal = new Date(year, month, day)
+    const todayStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`
 
     switch (historyFilter) {
       case 'week':
-        const weekStart = new Date(today)
-        weekStart.setDate(today.getDate() - 7)
+        const weekStart = new Date(year, month, day - 7)
+        const weekStartStr = `${weekStart.getFullYear()}-${String(weekStart.getMonth() + 1).padStart(2, '0')}-${String(weekStart.getDate()).padStart(2, '0')}`
         return {
-          startDate: weekStart.toISOString().split('T')[0],
-          endDate: today.toISOString().split('T')[0],
+          startDate: weekStartStr,
+          endDate: todayStr,
         }
       case 'month':
-        const monthStart = new Date(today.getFullYear(), today.getMonth(), 1)
+        const monthStartStr = `${year}-${String(month + 1).padStart(2, '0')}-01`
         return {
-          startDate: monthStart.toISOString().split('T')[0],
-          endDate: today.toISOString().split('T')[0],
+          startDate: monthStartStr,
+          endDate: todayStr,
         }
       default:
         // All time - last 90 days
-        const allStart = new Date(today)
-        allStart.setDate(today.getDate() - 90)
+        const allStart = new Date(year, month, day - 90)
+        const allStartStr = `${allStart.getFullYear()}-${String(allStart.getMonth() + 1).padStart(2, '0')}-${String(allStart.getDate()).padStart(2, '0')}`
         return {
-          startDate: allStart.toISOString().split('T')[0],
-          endDate: today.toISOString().split('T')[0],
+          startDate: allStartStr,
+          endDate: todayStr,
         }
     }
   }
@@ -104,17 +111,16 @@ export default function StudentAttendanceScreen() {
         dateRange: historyDateRange,
       })
 
+      // Fetch all records first, then filter in memory to ensure we get today's record
       const { data, error } = await supabase
         .from('Attendance')
         .select('date, breakfast, lunch, dinner')
         .eq('studentId', studentData.id)
-        .gte('date', historyDateRange.startDate)
-        .lte('date', historyDateRange.endDate)
         .order('date', { ascending: false })
+        .limit(100) // Get last 100 records
 
       if (error) {
         if (error.code === 'PGRST116') {
-          // No rows found - this is expected if no attendance records exist
           logger.debug('No attendance records found', { studentId: studentData.id })
           return []
         }
@@ -125,12 +131,20 @@ export default function StudentAttendanceScreen() {
         throw error
       }
 
-      logger.debug('Attendance history fetched successfully', {
-        studentId: studentData.id,
-        recordCount: data?.length || 0,
+      // Filter by date range in memory to ensure timezone consistency
+      const filtered = (data || []).filter((record) => {
+        const recordDate = record.date
+        return recordDate >= historyDateRange.startDate && recordDate <= historyDateRange.endDate
       })
 
-      return (data || []) as Array<{
+      logger.debug('Attendance history filtered', {
+        studentId: studentData.id,
+        totalRecords: data?.length || 0,
+        filteredRecords: filtered.length,
+        dateRange: historyDateRange,
+      })
+
+      return filtered as Array<{
         date: string
         breakfast: boolean
         lunch: boolean
