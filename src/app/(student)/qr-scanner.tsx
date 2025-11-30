@@ -15,6 +15,15 @@ export default function QRScannerScreen() {
   const { user } = useAuth()
   const queryClient = useQueryClient()
 
+  // Safety check for router
+  if (!router) {
+    return (
+      <View style={styles.container}>
+        <RNText style={styles.loadingText}>Loading...</RNText>
+      </View>
+    )
+  }
+
   const [loading, setLoading] = useState(false)
   const [result, setResult] = useState<MarkAttendanceResult | null>(null)
   const [showResult, setShowResult] = useState(false)
@@ -60,13 +69,29 @@ export default function QRScannerScreen() {
   }, [user?.id, studentData?.id, queryClient])
 
   const handleClose = useCallback(() => {
-    router.back()
+    if (!router) return
+    try {
+      router.back()
+    } catch (error) {
+      // Fallback navigation
+      router.replace('/(student)/(tabs)').catch(() => {
+        // Silent fail if navigation completely fails
+      })
+    }
   }, [router])
 
   const handleCloseResult = useCallback(() => {
     setShowResult(false)
     setResult(null)
-    router.back()
+    if (!router) return
+    try {
+      router.back()
+    } catch (error) {
+      // Fallback navigation
+      router.replace('/(student)/(tabs)').catch(() => {
+        // Silent fail if navigation completely fails
+      })
+    }
   }, [router])
 
   return (
