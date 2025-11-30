@@ -445,12 +445,31 @@ export async function createStudent(data: CreateStudentData): Promise<{ student:
     })
 
     if (error) {
-      logger.error('Error invoking admin-create-student function', error as Error)
-      return { student: null, error: new Error(error.message || 'Failed to create student') }
+      // Try to extract error message from response
+      let errorMessage = error.message || 'Failed to create student'
+      if (error.context && error.context.body) {
+        try {
+          const errorBody = typeof error.context.body === 'string' 
+            ? JSON.parse(error.context.body) 
+            : error.context.body
+          if (errorBody?.error) {
+            errorMessage = errorBody.error
+          }
+        } catch (e) {
+          // Ignore parse errors
+        }
+      }
+      logger.error('Error invoking admin-create-student function', error as Error, { 
+        message: errorMessage,
+        context: error.context 
+      })
+      return { student: null, error: new Error(errorMessage) }
     }
 
     if (!response?.success || !response.student) {
-      return { student: null, error: new Error(response?.error || 'Failed to create student') }
+      const errorMsg = response?.error || 'Failed to create student'
+      logger.error('Edge function returned error', new Error(errorMsg), { response })
+      return { student: null, error: new Error(errorMsg) }
     }
 
     return { student: response.student as Student, error: null }
