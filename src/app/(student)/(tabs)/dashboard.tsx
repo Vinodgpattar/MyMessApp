@@ -11,8 +11,6 @@ import { getCurrentMeal } from '@/lib/qr-attendance'
 import { useUnreadNotifications } from '@/hooks/useUnreadNotifications'
 import { NotificationBanner } from '@/components/student/dashboard/NotificationBanner'
 import { supabase } from '@/lib/supabase'
-import { NotificationBanner } from '@/components/student/dashboard/NotificationBanner'
-import { supabase } from '@/lib/supabase'
 
 export default function StudentDashboardScreen() {
   const insets = useSafeAreaInsets()
