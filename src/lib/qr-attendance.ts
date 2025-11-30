@@ -126,8 +126,11 @@ export async function markAttendanceFromQR(
       }
     }
 
-    // Get today's date in YYYY-MM-DD format
-    const todayStr = today.toISOString().split('T')[0]
+    // Get today's date in YYYY-MM-DD format (using local date to avoid timezone issues)
+    const year = today.getFullYear()
+    const month = today.getMonth()
+    const day = today.getDate()
+    const todayStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`
 
     // Check if attendance already exists for today
     const { data: existing, error: checkError } = await supabase

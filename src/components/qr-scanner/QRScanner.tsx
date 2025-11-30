@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react'
 import { View, StyleSheet, Alert, Linking, ActivityIndicator } from 'react-native'
-import { CameraView, CameraType, useCameraPermissions, Camera } from 'expo-camera'
+import { CameraView, useCameraPermissions, Camera } from 'expo-camera'
 import { MaterialCommunityIcons } from '@expo/vector-icons'
 import { Button, Text } from 'react-native-paper'
 import { validateQRCode } from '@/lib/qr-attendance'
@@ -72,16 +72,8 @@ export function QRScanner({ onScan, onClose }: QRScannerProps) {
   if (!permission) {
     return (
       <View style={styles.container}>
-        <Text>Requesting camera permission...</Text>
-      </View>
-    )
-  }
-
-  if (!permission) {
-    return (
-      <View style={styles.container}>
         <ActivityIndicator size="large" color="#7B2CBF" />
-        <Text variant="bodyMedium" style={styles.loadingText}>
+        <Text style={styles.loadingText}>
           Requesting camera permission...
         </Text>
       </View>
@@ -92,10 +84,10 @@ export function QRScanner({ onScan, onClose }: QRScannerProps) {
     return (
       <View style={styles.container}>
         <MaterialCommunityIcons name="camera-off" size={64} color="#9CA3AF" />
-        <Text variant="titleMedium" style={styles.permissionText}>
+        <Text style={styles.permissionText}>
           Camera permission required
         </Text>
-        <Text variant="bodySmall" style={styles.permissionSubtext}>
+        <Text style={styles.permissionSubtext}>
           Please grant camera permission to scan QR codes
         </Text>
         <Button mode="contained" onPress={requestPermission} style={styles.button}>
@@ -112,10 +104,10 @@ export function QRScanner({ onScan, onClose }: QRScannerProps) {
     return (
       <View style={styles.container}>
         <MaterialCommunityIcons name="alert-circle" size={64} color="#EF4444" />
-        <Text variant="titleMedium" style={styles.errorText}>
+        <Text style={styles.errorText}>
           Camera Error
         </Text>
-        <Text variant="bodySmall" style={styles.errorSubtext}>
+        <Text style={styles.errorSubtext}>
           {cameraError}
         </Text>
         <Button mode="contained" onPress={onClose} style={styles.button} buttonColor="#EF4444">
@@ -129,10 +121,10 @@ export function QRScanner({ onScan, onClose }: QRScannerProps) {
     <View style={styles.container}>
       <CameraView
         style={styles.camera}
-        facing={CameraType.back}
+        facing="back"
         onBarcodeScanned={scanned ? undefined : handleBarCodeScanned}
         barcodeScannerSettings={{
-          barcodeTypes: ['qr', 'pdf417', 'code128', 'code39', 'codabar']
+          barcodeTypes: ['qr']
         }}
         onCameraReady={() => {
           setCameraReady(true)
@@ -158,7 +150,7 @@ export function QRScanner({ onScan, onClose }: QRScannerProps) {
             </View>
           </View>
           <View style={styles.instructions}>
-            <Text variant="bodyMedium" style={styles.instructionText}>
+            <Text style={styles.instructionText}>
               Point camera at QR code
             </Text>
           </View>
@@ -239,9 +231,8 @@ const styles = StyleSheet.create({
   },
   permissionText: {
     textAlign: 'center',
-    marginTop: 16,
-    marginBottom: 8,
-    color: '#666',
+    marginTop: 20,
+    color: '#999',
   },
   permissionSubtext: {
     textAlign: 'center',
@@ -250,13 +241,12 @@ const styles = StyleSheet.create({
     paddingHorizontal: 32,
   },
   loadingText: {
-    marginTop: 16,
+    marginTop: 20,
     color: '#FFFFFF',
   },
   errorText: {
     textAlign: 'center',
-    marginTop: 16,
-    marginBottom: 8,
+    marginTop: 20,
     color: '#EF4444',
   },
   errorSubtext: {
