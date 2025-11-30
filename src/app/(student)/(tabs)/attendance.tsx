@@ -10,6 +10,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { getCurrentMeal } from '@/lib/qr-attendance'
 import { supabase } from '@/lib/supabase'
 import { format } from 'date-fns'
+import { logger } from '@/lib/logger'
 
 export default function StudentAttendanceScreen() {
   const insets = useSafeAreaInsets()
@@ -89,11 +90,20 @@ export default function StudentAttendanceScreen() {
   const historyDateRange = getHistoryDateRange()
 
   // Fetch attendance history
-  const { data: attendanceHistory, isLoading: historyLoading } = useQuery({
+  const { data: attendanceHistory, isLoading: historyLoading, error: historyError } = useQuery({
     queryKey: ['attendance-history', studentData?.id, historyFilter],
     queryFn: async () => {
-      if (!studentData?.id) return []
+      if (!studentData?.id) {
+        logger.debug('No student ID available for attendance history')
+        return []
+      }
       
+      logger.debug('Fetching attendance history', {
+        studentId: studentData.id,
+        filter: historyFilter,
+        dateRange: historyDateRange,
+      })
+
       const { data, error } = await supabase
         .from('Attendance')
         .select('date, breakfast, lunch, dinner')
@@ -102,7 +112,24 @@ export default function StudentAttendanceScreen() {
         .lte('date', historyDateRange.endDate)
         .order('date', { ascending: false })
 
-      if (error && error.code !== 'PGRST116') throw error
+      if (error) {
+        if (error.code === 'PGRST116') {
+          // No rows found - this is expected if no attendance records exist
+          logger.debug('No attendance records found', { studentId: studentData.id })
+          return []
+        }
+        logger.error('Error fetching attendance history', error as Error, {
+          studentId: studentData.id,
+          filter: historyFilter,
+        })
+        throw error
+      }
+
+      logger.debug('Attendance history fetched successfully', {
+        studentId: studentData.id,
+        recordCount: data?.length || 0,
+      })
+
       return (data || []) as Array<{
         date: string
         breakfast: boolean
@@ -338,11 +365,24 @@ export default function StudentAttendanceScreen() {
             {/* History List */}
             {historyLoading ? (
               <ActivityIndicator size="small" color="#7B2CBF" style={styles.loadingIndicator} />
+            ) : historyError ? (
+              <View style={styles.emptyHistory}>
+                <MaterialCommunityIcons name="alert-circle" size={48} color="#EF4444" />
+                <Text variant="bodyMedium" style={[styles.emptyHistoryText, { color: '#EF4444' }]}>
+                  Error loading attendance history
+                </Text>
+                <Text variant="bodySmall" style={styles.emptyHistoryText}>
+                  {historyError instanceof Error ? historyError.message : 'Unknown error'}
+                </Text>
+              </View>
             ) : history.length === 0 ? (
               <View style={styles.emptyHistory}>
                 <MaterialCommunityIcons name="calendar-blank" size={48} color="#D1D5DB" />
                 <Text variant="bodyMedium" style={styles.emptyHistoryText}>
                   No attendance records found
+                </Text>
+                <Text variant="bodySmall" style={styles.emptyHistoryText}>
+                  Your attendance history will appear here once you mark attendance
                 </Text>
               </View>
             ) : (
