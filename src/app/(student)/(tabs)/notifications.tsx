@@ -49,6 +49,7 @@ export default function StudentNotificationsScreen() {
 
   const fetchNotifications = useCallback(async () => {
     if (!studentId) {
+      logger.debug('No studentId available for fetching notifications')
       setLoading(false)
       return
     }
@@ -56,6 +57,27 @@ export default function StudentNotificationsScreen() {
     try {
       logger.debug('Fetching notifications', { studentId })
       
+      // First, let's check if we can query the table at all
+      const { data: testData, error: testError } = await supabase
+        .from('AdminNotificationRecipient')
+        .select('id, studentId')
+        .eq('studentId', studentId)
+        .limit(1)
+
+      if (testError) {
+        logger.error('Error testing AdminNotificationRecipient query', testError as Error, { 
+          studentId,
+          errorCode: testError.code,
+          errorMessage: testError.message,
+        })
+      } else {
+        logger.debug('Test query successful', { 
+          studentId,
+          hasRecords: (testData?.length || 0) > 0,
+        })
+      }
+
+      // Now fetch with full details
       const { data, error } = await supabase
         .from('AdminNotificationRecipient')
         .select(`
@@ -74,16 +96,36 @@ export default function StudentNotificationsScreen() {
         .order('notification.sentAt', { ascending: false })
 
       if (error) {
-        logger.error('Error fetching notifications', error as Error, { studentId })
+        logger.error('Error fetching notifications', error as Error, { 
+          studentId,
+          errorCode: error.code,
+          errorMessage: error.message,
+          errorDetails: error.details,
+          errorHint: error.hint,
+        })
         throw error
       }
 
       logger.debug('Notifications fetched successfully', { 
         studentId, 
-        count: data?.length || 0 
+        count: data?.length || 0,
+        notifications: data?.map(n => ({
+          id: n.id,
+          read: n.read,
+          notificationId: n.notification?.id,
+          title: n.notification?.title,
+        })),
       })
 
-      setNotifications((data || []) as AdminNotification[])
+      // Filter out any records where notification is null (shouldn't happen, but just in case)
+      const validNotifications = (data || []).filter(n => n.notification !== null)
+      
+      logger.debug('Valid notifications after filtering', {
+        studentId,
+        validCount: validNotifications.length,
+      })
+
+      setNotifications(validNotifications as AdminNotification[])
       
       // Invalidate unread count query to refresh badge
       queryClient.invalidateQueries({ queryKey: ['unread-notifications', studentId] })
@@ -191,6 +233,11 @@ export default function StudentNotificationsScreen() {
           <Text variant="bodyMedium" style={styles.emptyText}>
             You'll see announcements from admin here
           </Text>
+          {studentId && (
+            <Text variant="bodySmall" style={[styles.emptyText, { marginTop: 8, fontSize: 11 }]}>
+              Student ID: {studentId}
+            </Text>
+          )}
         </View>
       ) : (
         <ScrollView
