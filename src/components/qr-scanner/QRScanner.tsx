@@ -130,10 +130,6 @@ export function QRScanner({ onScan, onClose }: QRScannerProps) {
           setCameraReady(true)
           logger.debug('Camera ready')
         }}
-        onError={(error) => {
-          logger.error('Camera error', error as Error)
-          setCameraError(error.message || 'Camera failed to initialize')
-        }}
       >
         <View style={styles.overlay}>
           <View style={styles.topBar}>
