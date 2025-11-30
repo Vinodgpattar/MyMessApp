@@ -418,126 +418,42 @@ export async function getStudentById(id: number): Promise<{ student: Student | n
  */
 export async function createStudent(data: CreateStudentData): Promise<{ student: Student; error: null } | { student: null; error: Error }> {
   try {
-    // Validate required fields
-    if (!data.name?.trim()) {
-      return { student: null, error: new Error('Name is required') }
-    }
-    if (!data.email?.trim()) {
-      return { student: null, error: new Error('Email is required') }
-    }
-    if (!data.contactNumber?.trim()) {
-      return { student: null, error: new Error('Mobile number is required') }
-    }
-    if (!data.planId) {
-      return { student: null, error: new Error('Plan is required') }
+    if (!data.name?.trim()) return { student: null, error: new Error('Name is required') }
+    if (!data.email?.trim()) return { student: null, error: new Error('Email is required') }
+    if (!data.contactNumber?.trim()) return { student: null, error: new Error('Mobile number is required') }
+    if (!data.planId) return { student: null, error: new Error('Plan is required') }
+    if (!data.joinDate) return { student: null, error: new Error('Join date is required') }
+
+    const { data: { session } } = await supabase.auth.getSession()
+    if (!session) {
+      return { student: null, error: new Error('Not authenticated') }
     }
 
-    // Get plan to calculate price and end date
-    const { data: planData, error: planError } = await supabase
-      .from('Plan')
-      .select('id, name, price, durationDays')
-      .eq('id', data.planId)
-      .single()
-
-    if (planError || !planData) {
-      return { student: null, error: new Error('Plan not found') }
-    }
-
-    const planPrice = typeof planData.price === 'string' ? parseFloat(planData.price) : planData.price
-    const joinDate = new Date(data.joinDate)
-    const endDate = data.endDate ? new Date(data.endDate) : new Date(joinDate.getTime() + planData.durationDays * 24 * 60 * 60 * 1000)
-
-    // Calculate balance and credit (matching web app logic)
-    const paid = data.paid || 0
-    const priceRounded = Math.round(planPrice * 100) / 100
-    const paidRounded = Math.round(paid * 100) / 100
-    
-    const balance = Math.max(Math.round((priceRounded - paidRounded) * 100) / 100, 0)
-    const credit = Math.max(Math.round((paidRounded > priceRounded ? paidRounded - priceRounded : 0) * 100) / 100, 0)
-
-    // Generate roll number
-    const { data: rollNumbers } = await supabase
-      .from('Student')
-      .select('rollNumber')
-      .like('rollNumber', 'STU-%')
-      .order('rollNumber', { ascending: false })
-      .limit(1)
-
-    let rollNumber = 'STU-0001'
-    if (rollNumbers && rollNumbers.length > 0 && rollNumbers[0]?.rollNumber) {
-      const match = rollNumbers[0].rollNumber.match(/STU-(\d+)/)
-      if (match?.[1]) {
-        const lastNum = parseInt(match[1], 10)
-        if (!isNaN(lastNum)) {
-          rollNumber = `STU-${String(lastNum + 1).padStart(4, '0')}`
-        }
-      }
-    }
-
-    // Generate 4-digit PIN
-    const pin = Math.floor(1000 + Math.random() * 9000).toString()
-
-    // Generate secure password (8-12 characters, alphanumeric + special)
-    const generatePassword = () => {
-      const length = 10
-      const charset = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789!@#$%^&*'
-      let password = ''
-      // Ensure at least one lowercase, one uppercase, one number, one special
-      password += 'abcdefghijklmnopqrstuvwxyz'[Math.floor(Math.random() * 26)]
-      password += 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'[Math.floor(Math.random() * 26)]
-      password += '0123456789'[Math.floor(Math.random() * 10)]
-      password += '!@#$%^&*'[Math.floor(Math.random() * 8)]
-      // Fill the rest randomly
-      for (let i = password.length; i < length; i++) {
-        password += charset[Math.floor(Math.random() * charset.length)]
-      }
-      // Shuffle
-      return password.split('').sort(() => Math.random() - 0.5).join('')
-    }
-    const generatedPassword = generatePassword()
-
-    // Create student
-    const { data: studentData, error } = await supabase
-      .from('Student')
-      .insert({
+    const { data: response, error } = await supabase.functions.invoke('admin-create-student', {
+      body: {
         name: data.name.trim(),
-        email: data.email.trim().toLowerCase(),
+        email: data.email.trim(),
         contactNumber: data.contactNumber.trim(),
         planId: data.planId,
-        rollNumber,
-        joinDate: joinDate.toISOString().split('T')[0],
-        endDate: endDate.toISOString().split('T')[0],
-        price: planPrice,
-        paid,
-        balance,
-        credit,
-        pin,
-        isActive: true,
-      })
-      .select('id, name, rollNumber, email, contactNumber, planId, joinDate, endDate, price, paid, balance, credit, pin, isActive, createdAt, updatedAt')
-      .single()
+        joinDate: data.joinDate,
+        endDate: data.endDate,
+        paid: data.paid ?? 0,
+      },
+      headers: {
+        Authorization: `Bearer ${session.access_token}`,
+      },
+    })
 
     if (error) {
-      logger.error('Error creating student', error as Error)
-      return { student: null, error: new Error(error.message) }
+      logger.error('Error invoking admin-create-student function', error as Error)
+      return { student: null, error: new Error(error.message || 'Failed to create student') }
     }
 
-    // Fetch with plan relation
-    const result = await getStudentById(studentData.id)
-    if (result.error || !result.student) {
-      return { student: null, error: result.error || new Error('Failed to fetch created student') }
+    if (!response?.success || !response.student) {
+      return { student: null, error: new Error(response?.error || 'Failed to create student') }
     }
 
-    // Create Supabase Auth user with the generated password
-    // Note: This requires service role key, but we're using anon key
-    // The web app API will handle Auth user creation when sending email
-    // For now, we'll store the password temporarily for display
-    const studentWithPassword = {
-      ...result.student,
-      password: generatedPassword, // This will be used for display, web app will create Auth user
-    }
-
-    return { student: studentWithPassword, error: null }
+    return { student: response.student as Student, error: null }
   } catch (error) {
     logger.error('Unexpected error creating student', error as Error)
     return {
