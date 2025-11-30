@@ -1,5 +1,5 @@
-import React from 'react'
-import { View, StyleSheet, ScrollView, ActivityIndicator, TouchableOpacity } from 'react-native'
+import React, { useState } from 'react'
+import { View, StyleSheet, ScrollView, ActivityIndicator } from 'react-native'
 import { Text, Card, Button } from 'react-native-paper'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { MaterialCommunityIcons } from '@expo/vector-icons'
@@ -9,6 +9,10 @@ import { getStudentByUserId } from '@/lib/students'
 import { useQuery } from '@tanstack/react-query'
 import { getCurrentMeal } from '@/lib/qr-attendance'
 import { useUnreadNotifications } from '@/hooks/useUnreadNotifications'
+import { NotificationBanner } from '@/components/student/dashboard/NotificationBanner'
+import { supabase } from '@/lib/supabase'
+import { NotificationBanner } from '@/components/student/dashboard/NotificationBanner'
+import { supabase } from '@/lib/supabase'
 
 export default function StudentDashboardScreen() {
   const insets = useSafeAreaInsets()
@@ -29,6 +33,61 @@ export default function StudentDashboardScreen() {
   const currentMeal = getCurrentMeal()
   const student = studentData
   const { unreadCount } = useUnreadNotifications()
+  const [dismissedNotificationId, setDismissedNotificationId] = useState<number | null>(null)
+
+  // Fetch most recent unread notification for banner
+  const { data: recentNotification } = useQuery({
+    queryKey: ['recent-notification', studentData?.id],
+    queryFn: async () => {
+      if (!studentData?.id) return null
+
+      const { data, error } = await supabase
+        .from('AdminNotificationRecipient')
+        .select(`
+          id,
+          read,
+          notification:AdminNotification (
+            id,
+            title,
+            message,
+            imageUrl,
+            sentAt
+          )
+        `)
+        .eq('studentId', studentData.id)
+        .eq('read', false)
+        .limit(1)
+
+      if (error || !data || data.length === 0) return null
+
+      const recipient = data[0]
+      if (!recipient.notification) return null
+
+      return {
+        id: recipient.notification.id,
+        title: recipient.notification.title,
+        message: recipient.notification.message,
+        imageUrl: recipient.notification.imageUrl,
+        sentAt: recipient.notification.sentAt,
+        read: recipient.read,
+        recipientId: recipient.id,
+      }
+    },
+    enabled: !!studentData?.id && unreadCount > 0,
+  })
+
+  // Check if notification should be shown (within 24 hours and not dismissed)
+  const shouldShowNotification = (() => {
+    if (!recentNotification || recentNotification.id === dismissedNotificationId) {
+      return false
+    }
+    
+    const notificationDate = new Date(recentNotification.sentAt)
+    const twentyFourHoursAgo = new Date()
+    twentyFourHoursAgo.setHours(twentyFourHoursAgo.getHours() - 24)
+    
+    return notificationDate >= twentyFourHoursAgo
+  })()
 
   return (
     <View style={styles.container}>
@@ -86,28 +145,12 @@ export default function StudentDashboardScreen() {
           contentContainerStyle={styles.scrollContent}
         >
         {/* Notification Banner */}
-        {unreadCount > 0 && (
-          <TouchableOpacity
+        {shouldShowNotification && recentNotification && (
+          <NotificationBanner
+            notification={recentNotification}
             onPress={() => router.push('/(student)/(tabs)/notifications')}
-            activeOpacity={0.7}
-          >
-            <Card style={styles.notificationBanner}>
-              <Card.Content style={styles.notificationBannerContent}>
-                <View style={styles.notificationBannerLeft}>
-                  <MaterialCommunityIcons name="bell" size={24} color="#7B2CBF" />
-                  <View style={styles.notificationBannerText}>
-                    <Text variant="titleSmall" style={styles.notificationBannerTitle}>
-                      {unreadCount} New Announcement{unreadCount > 1 ? 's' : ''}
-                    </Text>
-                    <Text variant="bodySmall" style={styles.notificationBannerSubtitle}>
-                      Tap to view
-                    </Text>
-                  </View>
-                </View>
-                <MaterialCommunityIcons name="chevron-right" size={24} color="#7B2CBF" />
-              </Card.Content>
-            </Card>
-          </TouchableOpacity>
+            onDismiss={() => setDismissedNotificationId(recentNotification.id)}
+          />
         )}
 
         {/* Profile Card */}

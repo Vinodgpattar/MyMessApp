@@ -1,5 +1,5 @@
 import { View, StyleSheet, ScrollView, RefreshControl, Image, TouchableOpacity } from 'react-native'
-import { Text, Card, ActivityIndicator } from 'react-native-paper'
+import { Text, Card, ActivityIndicator, Button } from 'react-native-paper'
 import { useRouter } from 'expo-router'
 import { MaterialCommunityIcons } from '@expo/vector-icons'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
@@ -11,6 +11,7 @@ import { getStudentByUserId } from '@/lib/students'
 import { supabase } from '@/lib/supabase'
 import { logger } from '@/lib/logger'
 import { useQueryClient } from '@tanstack/react-query'
+import { LinearGradient } from 'expo-linear-gradient'
 
 interface AdminNotification {
   id: number
@@ -209,6 +210,29 @@ export default function StudentNotificationsScreen() {
 
   const unreadCount = notifications.filter(n => !n.read).length
 
+  const handleMarkAllRead = async () => {
+    if (!studentId || unreadCount === 0) return
+
+    try {
+      const unreadIds = notifications.filter(n => !n.read).map(n => n.id)
+      await supabase
+        .from('AdminNotificationRecipient')
+        .update({
+          read: true,
+          readAt: new Date().toISOString(),
+        })
+        .in('id', unreadIds)
+
+      setNotifications(prev =>
+        prev.map(n => ({ ...n, read: true, readAt: new Date().toISOString() }))
+      )
+      
+      queryClient.invalidateQueries({ queryKey: ['unread-notifications', studentId] })
+    } catch (error) {
+      logger.error('Error marking all notifications as read', error as Error)
+    }
+  }
+
   return (
     <View style={styles.container}>
       {/* Header */}
@@ -226,6 +250,21 @@ export default function StudentNotificationsScreen() {
           )}
         </View>
       </View>
+
+      {/* Mark All Read Button */}
+      {unreadCount > 0 && (
+        <View style={styles.actionBar}>
+          <Button
+            mode="text"
+            onPress={handleMarkAllRead}
+            textColor="#7B2CBF"
+            icon="check-all"
+            compact
+          >
+            Mark All Read
+          </Button>
+        </View>
+      )}
 
       {loading ? (
         <View style={styles.loadingContainer}>
@@ -257,54 +296,59 @@ export default function StudentNotificationsScreen() {
         >
           {notifications.map((item) => {
             const notification = item.notification
+            const icon = 'bullhorn'
+            const colors = ['#6366F1', '#4F46E5'] as [string, string]
+            const timeAgo = notification.sentAt && !isNaN(new Date(notification.sentAt).getTime())
+              ? formatDistanceToNow(new Date(notification.sentAt), { addSuffix: true })
+              : 'Recently'
+
             return (
               <TouchableOpacity
                 key={item.id}
                 onPress={() => handleNotificationPress(item)}
-                activeOpacity={0.7}
+                activeOpacity={0.8}
+                style={styles.notificationContainer}
               >
-                <Card
-                  style={[
-                    styles.notificationCard,
-                    !item.read && styles.unreadCard,
-                  ]}
-                  mode="outlined"
+                <LinearGradient
+                  colors={colors}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 0 }}
+                  style={styles.notificationBanner}
                 >
-                  <Card.Content>
-                    <View style={styles.notificationHeader}>
-                      <View style={styles.notificationIcon}>
-                        <MaterialCommunityIcons
-                          name="megaphone"
-                          size={20}
-                          color="#7B2CBF"
-                        />
+                  <View style={styles.bannerContent}>
+                    <View style={styles.bannerLeft}>
+                      <View style={styles.iconContainer}>
+                        <MaterialCommunityIcons name={icon as any} size={24} color="#fff" />
                       </View>
-                      <View style={styles.notificationContent}>
-                        <Text variant="titleSmall" style={styles.notificationTitle}>
-                          {notification.title}
+                      <View style={styles.textContainer}>
+                        <View style={styles.titleRow}>
+                          <Text variant="titleMedium" style={styles.notificationTitle} numberOfLines={2}>
+                            {notification.title}
+                          </Text>
+                          {!item.read && (
+                            <View style={styles.unreadDot} />
+                          )}
+                        </View>
+                        <Text variant="bodyMedium" style={styles.notificationMessage} numberOfLines={3}>
+                          {notification.message}
                         </Text>
-                        <Text variant="bodySmall" style={styles.notificationTime}>
-                          {formatTime(notification.sentAt)}
+                        <Text variant="labelSmall" style={styles.notificationTime}>
+                          {timeAgo}
                         </Text>
                       </View>
-                      {!item.read && (
-                        <View style={styles.unreadDot} />
-                      )}
                     </View>
-                    <Text variant="bodyMedium" style={styles.notificationBody}>
-                      {notification.message}
-                    </Text>
-                    {notification.imageUrl && (
-                      <View style={styles.imageContainer}>
+                    <View style={styles.bannerRight}>
+                      {notification.imageUrl && (
                         <Image
                           source={{ uri: notification.imageUrl }}
-                          style={styles.notificationImage}
+                          style={styles.thumbnail}
                           resizeMode="cover"
                         />
-                      </View>
-                    )}
-                  </Card.Content>
-                </Card>
+                      )}
+                      <MaterialCommunityIcons name="chevron-right" size={24} color="#fff" />
+                    </View>
+                  </View>
+                </LinearGradient>
               </TouchableOpacity>
             )
           })}
@@ -378,64 +422,97 @@ const styles = StyleSheet.create({
   scrollView: {
     flex: 1,
   },
+  actionBar: {
+    backgroundColor: '#FFFFFF',
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderBottomWidth: 1,
+    borderBottomColor: '#F3F4F6',
+  },
   content: {
     padding: 16,
   },
-  notificationCard: {
+  notificationContainer: {
     marginBottom: 12,
+  },
+  notificationBanner: {
     borderRadius: 12,
-    backgroundColor: '#FFFFFF',
+    elevation: 2,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 4,
+    overflow: 'hidden',
   },
-  unreadCard: {
-    borderLeftWidth: 4,
-    borderLeftColor: '#7B2CBF',
-  },
-  notificationHeader: {
+  bannerContent: {
     flexDirection: 'row',
-    gap: 12,
-    marginBottom: 8,
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: 16,
+    paddingHorizontal: 16,
   },
-  notificationIcon: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    backgroundColor: '#F3E8FF',
+  bannerLeft: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 12,
+    flex: 1,
+  },
+  iconContainer: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: 'rgba(255, 255, 255, 0.25)',
     justifyContent: 'center',
     alignItems: 'center',
   },
-  notificationContent: {
+  textContainer: {
     flex: 1,
+    gap: 4,
   },
-  notificationTitle: {
-    fontWeight: '600',
-    color: '#1F2937',
+  titleRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 8,
     marginBottom: 2,
   },
+  notificationTitle: {
+    color: '#fff',
+    fontWeight: '700',
+    fontSize: 16,
+    lineHeight: 22,
+    flex: 1,
+  },
+  notificationMessage: {
+    color: '#fff',
+    opacity: 0.95,
+    fontSize: 13,
+    lineHeight: 18,
+    marginTop: 2,
+  },
   notificationTime: {
-    color: '#6B7280',
-    fontSize: 12,
+    color: '#fff',
+    opacity: 0.85,
+    fontSize: 11,
+    marginTop: 4,
+  },
+  bannerRight: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginLeft: 12,
+  },
+  thumbnail: {
+    width: 60,
+    height: 60,
+    borderRadius: 8,
+    backgroundColor: 'rgba(255, 255, 255, 0.2)',
   },
   unreadDot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-    backgroundColor: '#7B2CBF',
-    marginTop: 4,
-  },
-  notificationBody: {
-    color: '#374151',
-    lineHeight: 20,
-    marginTop: 4,
-  },
-  imageContainer: {
-    marginTop: 12,
-    borderRadius: 8,
-    overflow: 'hidden',
-  },
-  notificationImage: {
-    width: '100%',
-    height: 200,
-    backgroundColor: '#F3F4F6',
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+    backgroundColor: '#fff',
+    marginTop: 2,
   },
   bottomPadding: {
     height: 20,
