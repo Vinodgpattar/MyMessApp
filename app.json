@@ -65,8 +65,8 @@
     "scheme": "mess-management",
     "updates": {
       "url": "https://u.expo.dev/9638ea31-1cb0-4587-bb69-fe880ca6c02b",
-      "enabled": false,
-      "checkAutomatically": "NEVER",
+      "enabled": true,
+      "checkAutomatically": "ON_LOAD",
       "fallbackToCacheTimeout": 0
     },
     "runtimeVersion": {
