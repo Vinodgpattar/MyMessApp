@@ -78,6 +78,7 @@ export default function StudentNotificationsScreen() {
       }
 
       // Now fetch with full details
+      // Note: Can't order by nested relation field, so we'll fetch and sort in memory
       const { data, error } = await supabase
         .from('AdminNotificationRecipient')
         .select(`
@@ -93,7 +94,6 @@ export default function StudentNotificationsScreen() {
           )
         `)
         .eq('studentId', studentId)
-        .order('notification.sentAt', { ascending: false })
 
       if (error) {
         logger.error('Error fetching notifications', error as Error, { 
@@ -118,9 +118,16 @@ export default function StudentNotificationsScreen() {
       })
 
       // Filter out any records where notification is null (shouldn't happen, but just in case)
-      const validNotifications = (data || []).filter(n => n.notification !== null)
+      let validNotifications = (data || []).filter(n => n.notification !== null)
       
-      logger.debug('Valid notifications after filtering', {
+      // Sort by notification sentAt date (newest first) since we can't order by nested field in query
+      validNotifications = validNotifications.sort((a, b) => {
+        const dateA = a.notification?.sentAt ? new Date(a.notification.sentAt).getTime() : 0
+        const dateB = b.notification?.sentAt ? new Date(b.notification.sentAt).getTime() : 0
+        return dateB - dateA // Descending order (newest first)
+      })
+      
+      logger.debug('Valid notifications after filtering and sorting', {
         studentId,
         validCount: validNotifications.length,
       })
