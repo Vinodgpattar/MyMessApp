@@ -8,6 +8,7 @@ import { getStudentByUserId } from '@/lib/students'
 import { getPayments, Payment } from '@/lib/payments'
 import { useQuery } from '@tanstack/react-query'
 import { format } from 'date-fns'
+import { logger } from '@/lib/logger'
 
 type DateFilter = 'all' | 'today' | 'week' | 'month'
 
@@ -31,30 +32,43 @@ export default function StudentPaymentsScreen() {
 
   // Calculate date range based on filter
   const getDateRange = () => {
+    // Use local date to avoid timezone issues
     const today = new Date()
-    today.setHours(0, 0, 0, 0)
+    const year = today.getFullYear()
+    const month = today.getMonth()
+    const day = today.getDate()
+    
+    // Create date at midnight local time
+    const todayLocal = new Date(year, month, day)
+    const todayStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`
 
     switch (dateFilter) {
       case 'today':
         return {
-          startDate: today.toISOString().split('T')[0],
-          endDate: today.toISOString().split('T')[0],
+          startDate: todayStr,
+          endDate: todayStr,
         }
       case 'week':
-        const weekStart = new Date(today)
-        weekStart.setDate(today.getDate() - today.getDay())
+        // Last 7 days including today
+        const weekStart = new Date(year, month, day - 7)
+        const weekStartStr = `${weekStart.getFullYear()}-${String(weekStart.getMonth() + 1).padStart(2, '0')}-${String(weekStart.getDate()).padStart(2, '0')}`
         return {
-          startDate: weekStart.toISOString().split('T')[0],
-          endDate: today.toISOString().split('T')[0],
+          startDate: weekStartStr,
+          endDate: todayStr,
         }
       case 'month':
-        const monthStart = new Date(today.getFullYear(), today.getMonth(), 1)
+        // Current month from 1st to today
+        const monthStartStr = `${year}-${String(month + 1).padStart(2, '0')}-01`
         return {
-          startDate: monthStart.toISOString().split('T')[0],
-          endDate: today.toISOString().split('T')[0],
+          startDate: monthStartStr,
+          endDate: todayStr,
         }
       default:
-        return {}
+        // All time - no date filter
+        return {
+          startDate: undefined,
+          endDate: undefined,
+        }
     }
   }
 
@@ -65,16 +79,38 @@ export default function StudentPaymentsScreen() {
     data: paymentsData,
     isLoading: paymentsLoading,
     refetch,
+    error: paymentsError,
   } = useQuery({
     queryKey: ['student-payments', studentData?.id, dateFilter],
     queryFn: async () => {
       if (!studentData?.id) return null
+      
+      logger.debug('Fetching payments', {
+        studentId: studentData.id,
+        filter: dateFilter,
+        dateRange,
+      })
+      
       const result = await getPayments({
         studentId: studentData.id,
         startDate: dateRange.startDate,
         endDate: dateRange.endDate,
       })
-      if (result.error) throw result.error
+      
+      if (result.error) {
+        logger.error('Error fetching payments', result.error, {
+          studentId: studentData.id,
+          filter: dateFilter,
+        })
+        throw result.error
+      }
+      
+      logger.debug('Payments fetched successfully', {
+        studentId: studentData.id,
+        filter: dateFilter,
+        count: result.payments?.length || 0,
+      })
+      
       return result.payments || []
     },
     enabled: !!studentData?.id,
@@ -256,7 +292,19 @@ export default function StudentPaymentsScreen() {
           )}
         </View>
 
-        {payments.length === 0 ? (
+        {paymentsError ? (
+          <Card style={styles.card}>
+            <Card.Content style={styles.emptyContent}>
+              <MaterialCommunityIcons name="alert-circle" size={64} color="#EF4444" />
+              <Text variant="titleMedium" style={[styles.emptyTitle, { color: '#EF4444' }]}>
+                Error loading payments
+              </Text>
+              <Text variant="bodySmall" style={styles.emptyText}>
+                {paymentsError instanceof Error ? paymentsError.message : 'Failed to load payments'}
+              </Text>
+            </Card.Content>
+          </Card>
+        ) : payments.length === 0 ? (
           <Card style={styles.card}>
             <Card.Content style={styles.emptyContent}>
               <MaterialCommunityIcons name="cash-off" size={64} color="#D1D5DB" />
