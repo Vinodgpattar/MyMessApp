@@ -1,6 +1,23 @@
 import { Tabs } from 'expo-router'
 import { MaterialCommunityIcons } from '@expo/vector-icons'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
+import { View, Text, StyleSheet } from 'react-native'
+import { useUnreadNotifications } from '@/hooks/useUnreadNotifications'
+
+function NotificationIconWithBadge({ color, size }: { color: string; size: number }) {
+  const { unreadCount } = useUnreadNotifications()
+  
+  return (
+    <View style={styles.iconContainer}>
+      <MaterialCommunityIcons name="bell" size={size} color={color} />
+      {unreadCount > 0 && (
+        <View style={styles.badge}>
+          <Text style={styles.badgeText}>{unreadCount > 9 ? '9+' : unreadCount}</Text>
+        </View>
+      )}
+    </View>
+  )
+}
 
 export default function StudentTabsLayout() {
   const insets = useSafeAreaInsets()
@@ -57,7 +74,7 @@ export default function StudentTabsLayout() {
         options={{
           title: 'Announcements',
           tabBarIcon: ({ color, size }) => (
-            <MaterialCommunityIcons name="bell" size={size} color={color} />
+            <NotificationIconWithBadge color={color} size={size} />
           ),
         }}
       />
@@ -79,4 +96,29 @@ export default function StudentTabsLayout() {
     </Tabs>
   )
 }
+
+const styles = StyleSheet.create({
+  iconContainer: {
+    position: 'relative',
+  },
+  badge: {
+    position: 'absolute',
+    top: -4,
+    right: -8,
+    backgroundColor: '#EF4444',
+    borderRadius: 10,
+    minWidth: 20,
+    height: 20,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 4,
+    borderWidth: 2,
+    borderColor: '#FFFFFF',
+  },
+  badgeText: {
+    color: '#FFFFFF',
+    fontSize: 10,
+    fontWeight: '700',
+  },
+})
 

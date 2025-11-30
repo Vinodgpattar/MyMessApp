@@ -1,5 +1,5 @@
 import React from 'react'
-import { View, StyleSheet, ScrollView, ActivityIndicator } from 'react-native'
+import { View, StyleSheet, ScrollView, ActivityIndicator, TouchableOpacity } from 'react-native'
 import { Text, Card, Button } from 'react-native-paper'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { MaterialCommunityIcons } from '@expo/vector-icons'
@@ -8,6 +8,7 @@ import { useAuth } from '@/context/AuthContext'
 import { getStudentByUserId } from '@/lib/students'
 import { useQuery } from '@tanstack/react-query'
 import { getCurrentMeal } from '@/lib/qr-attendance'
+import { useUnreadNotifications } from '@/hooks/useUnreadNotifications'
 
 export default function StudentDashboardScreen() {
   const insets = useSafeAreaInsets()
@@ -27,6 +28,7 @@ export default function StudentDashboardScreen() {
 
   const currentMeal = getCurrentMeal()
   const student = studentData
+  const { unreadCount } = useUnreadNotifications()
 
   return (
     <View style={styles.container}>
@@ -83,6 +85,31 @@ export default function StudentDashboardScreen() {
           style={styles.scrollView}
           contentContainerStyle={styles.scrollContent}
         >
+        {/* Notification Banner */}
+        {unreadCount > 0 && (
+          <TouchableOpacity
+            onPress={() => router.push('/(student)/(tabs)/notifications')}
+            activeOpacity={0.7}
+          >
+            <Card style={styles.notificationBanner}>
+              <Card.Content style={styles.notificationBannerContent}>
+                <View style={styles.notificationBannerLeft}>
+                  <MaterialCommunityIcons name="bell" size={24} color="#7B2CBF" />
+                  <View style={styles.notificationBannerText}>
+                    <Text variant="titleSmall" style={styles.notificationBannerTitle}>
+                      {unreadCount} New Announcement{unreadCount > 1 ? 's' : ''}
+                    </Text>
+                    <Text variant="bodySmall" style={styles.notificationBannerSubtitle}>
+                      Tap to view
+                    </Text>
+                  </View>
+                </View>
+                <MaterialCommunityIcons name="chevron-right" size={24} color="#7B2CBF" />
+              </Card.Content>
+            </Card>
+          </TouchableOpacity>
+        )}
+
         {/* Profile Card */}
         <Card style={styles.card}>
           <Card.Content>
@@ -447,6 +474,37 @@ const styles = StyleSheet.create({
   },
   qrButtonContent: {
     paddingVertical: 8,
+  },
+  notificationBanner: {
+    marginBottom: 16,
+    backgroundColor: '#F3E8FF',
+    borderWidth: 1,
+    borderColor: '#E0E7FF',
+    borderRadius: 12,
+  },
+  notificationBannerContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: 12,
+  },
+  notificationBannerLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    flex: 1,
+  },
+  notificationBannerText: {
+    flex: 1,
+  },
+  notificationBannerTitle: {
+    fontWeight: '600',
+    color: '#1A1A1A',
+    marginBottom: 2,
+  },
+  notificationBannerSubtitle: {
+    color: '#6B7280',
+    fontSize: 12,
   },
 })
 

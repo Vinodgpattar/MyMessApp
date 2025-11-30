@@ -9,6 +9,8 @@ import { useFocusEffect } from 'expo-router'
 import { useAuth } from '@/context/AuthContext'
 import { getStudentByUserId } from '@/lib/students'
 import { supabase } from '@/lib/supabase'
+import { logger } from '@/lib/logger'
+import { useQueryClient } from '@tanstack/react-query'
 
 interface AdminNotification {
   id: number
@@ -31,6 +33,7 @@ export default function StudentNotificationsScreen() {
   const [loading, setLoading] = useState(true)
   const [refreshing, setRefreshing] = useState(false)
   const [studentId, setStudentId] = useState<number | null>(null)
+  const queryClient = useQueryClient()
 
   // Get student ID
   useEffect(() => {
@@ -45,9 +48,14 @@ export default function StudentNotificationsScreen() {
   }, [user])
 
   const fetchNotifications = useCallback(async () => {
-    if (!studentId) return
+    if (!studentId) {
+      setLoading(false)
+      return
+    }
 
     try {
+      logger.debug('Fetching notifications', { studentId })
+      
       const { data, error } = await supabase
         .from('AdminNotificationRecipient')
         .select(`
@@ -65,16 +73,27 @@ export default function StudentNotificationsScreen() {
         .eq('studentId', studentId)
         .order('notification.sentAt', { ascending: false })
 
-      if (error) throw error
+      if (error) {
+        logger.error('Error fetching notifications', error as Error, { studentId })
+        throw error
+      }
+
+      logger.debug('Notifications fetched successfully', { 
+        studentId, 
+        count: data?.length || 0 
+      })
 
       setNotifications((data || []) as AdminNotification[])
+      
+      // Invalidate unread count query to refresh badge
+      queryClient.invalidateQueries({ queryKey: ['unread-notifications', studentId] })
     } catch (error) {
-      // Error fetching notifications - silently handle
+      logger.error('Unexpected error fetching notifications', error as Error, { studentId })
     } finally {
       setLoading(false)
       setRefreshing(false)
     }
-  }, [studentId])
+  }, [studentId, queryClient])
 
   useFocusEffect(
     useCallback(() => {
@@ -109,8 +128,15 @@ export default function StudentNotificationsScreen() {
               : n
           )
         )
+        
+        // Invalidate unread count query to refresh badge
+        if (studentId) {
+          queryClient.invalidateQueries({ queryKey: ['unread-notifications', studentId] })
+        }
       } catch (error) {
-        // Error marking notification as read - silently handle
+        logger.error('Error marking notification as read', error as Error, {
+          notificationId: notification.id,
+        })
       }
     }
   }
