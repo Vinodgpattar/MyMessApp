@@ -14,6 +14,7 @@ import {
 import AsyncStorage from '@react-native-async-storage/async-storage'
 import { supabase } from '@/lib/supabase'
 import { useAuth } from './AuthContext'
+import { logger } from '@/lib/logger'
 
 const NOTIFICATION_CONFIG_KEY = '@notification_config'
 const NOTIFICATION_HISTORY_KEY = '@notification_history'
@@ -134,15 +135,17 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
             Constants.easConfig?.projectId
 
           if (!projectId) {
-            // Expo project ID not found - push notifications may not work
+            logger.warn('Expo project ID not found - push notifications may not work')
             return
           }
 
+          logger.debug('Getting Expo push token', { projectId, userId: user.id })
           const { data: tokenData } = await Notifications.getExpoPushTokenAsync({
             projectId,
           })
 
           if (tokenData) {
+            logger.debug('Expo push token received', { tokenLength: tokenData.length })
             // Save to Supabase
             const { error } = await supabase
               .from('user_push_tokens')
@@ -159,11 +162,23 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
               )
 
             if (error) {
-              // Error saving push token - silently fail
+              logger.error('Error saving push token to Supabase', error as Error, {
+                userId: user.id,
+                platform: Platform.OS,
+              })
+            } else {
+              logger.info('Push token registered successfully', {
+                userId: user.id,
+                platform: Platform.OS,
+              })
             }
+          } else {
+            logger.warn('No push token data received from Expo')
           }
         } catch (error) {
-          // Error registering push token - silently fail
+          logger.error('Error registering push token', error as Error, {
+            userId: user.id,
+          })
         }
       }
 
