@@ -8,6 +8,9 @@ import { useAuth } from '@/context/AuthContext'
 import { getStudentByUserId } from '@/lib/students'
 import { useQuery } from '@tanstack/react-query'
 
+// Feature flag: Set to true to show PIN reset UI, false to hide it
+const ENABLE_PIN_RESET = false
+
 export default function StudentProfileScreen() {
   const insets = useSafeAreaInsets()
   const router = useRouter()
@@ -145,30 +148,32 @@ export default function StudentProfileScreen() {
               </Card.Content>
             </Card>
 
-            {/* PIN Management */}
-            <Card style={styles.card}>
-              <Card.Content>
-                <View style={styles.cardHeader}>
-                  <MaterialCommunityIcons name="lock" size={24} color="#7B2CBF" />
-                  <Text variant="titleMedium" style={styles.cardTitle}>
-                    PIN Management
-                  </Text>
-                </View>
-                <View style={styles.pinSection}>
-                  <Text variant="bodyMedium" style={styles.pinInfo}>
-                    Your 4-digit PIN is used for marking attendance via QR code.
-                  </Text>
-                  <Button
-                    mode="contained"
-                    onPress={handleResetPIN}
-                    style={styles.pinButton}
-                    icon="lock-reset"
-                  >
-                    Reset PIN
-                  </Button>
-                </View>
-              </Card.Content>
-            </Card>
+            {/* PIN Management - Hidden by default, set ENABLE_PIN_RESET = true to show */}
+            {ENABLE_PIN_RESET && (
+              <Card style={styles.card}>
+                <Card.Content>
+                  <View style={styles.cardHeader}>
+                    <MaterialCommunityIcons name="lock" size={24} color="#7B2CBF" />
+                    <Text variant="titleMedium" style={styles.cardTitle}>
+                      PIN Management
+                    </Text>
+                  </View>
+                  <View style={styles.pinSection}>
+                    <Text variant="bodyMedium" style={styles.pinInfo}>
+                      Your 4-digit PIN is used for marking attendance via QR code.
+                    </Text>
+                    <Button
+                      mode="contained"
+                      onPress={handleResetPIN}
+                      style={styles.pinButton}
+                      icon="lock-reset"
+                    >
+                      Reset PIN
+                    </Button>
+                  </View>
+                </Card.Content>
+              </Card>
+            )}
           </>
         )}
 
