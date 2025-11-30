@@ -50,28 +50,9 @@
         }
       ],
       "expo-notifications",
-      "expo-font",
-      [
-        "expo-build-properties",
-        {
-          "android": {
-            "kotlinVersion": "2.0.20"
-          },
-          "ios": {},
-          "newArchEnabled": false
-        }
-      ]
+      "expo-font"
     ],
     "scheme": "mess-management",
-    "updates": {
-      "url": "https://u.expo.dev/9638ea31-1cb0-4587-bb69-fe880ca6c02b",
-      "enabled": true,
-      "checkAutomatically": "ON_LOAD",
-      "fallbackToCacheTimeout": 0
-    },
-    "runtimeVersion": {
-      "policy": "appVersion"
-    },
     "extra": {
       "router": {},
       "eas": {
