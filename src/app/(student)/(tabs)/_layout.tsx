@@ -70,21 +70,30 @@ export default function StudentTabsLayout() {
         }}
       />
       <Tabs.Screen
+        name="menu"
+        options={{
+          title: 'Menu',
+          tabBarIcon: ({ color, size }) => (
+            <MaterialCommunityIcons name="silverware-fork-knife" size={size} color={color} />
+          ),
+        }}
+      />
+      <Tabs.Screen
         name="notifications"
         options={{
-          title: 'Announcements',
-          tabBarIcon: ({ color, size }) => (
-            <NotificationIconWithBadge color={color} size={size} />
-          ),
+          href: null, // Hide from tab bar - accessed from header bell icon
         }}
       />
       <Tabs.Screen
         name="profile"
         options={{
-          title: 'Profile',
-          tabBarIcon: ({ color, size }) => (
-            <MaterialCommunityIcons name="account" size={size} color={color} />
-          ),
+          href: null, // Hide from tab bar - accessed from header profile icon
+        }}
+      />
+      <Tabs.Screen
+        name="notification-details"
+        options={{
+          href: null, // Hide details screen from tab bar
         }}
       />
       <Tabs.Screen

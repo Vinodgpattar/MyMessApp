@@ -136,17 +136,24 @@ serve(async (req) => {
       newEndDate.setDate(newEndDate.getDate() + newPlan.durationDays)
     }
 
-    // Calculate balance with credit carry-forward
+    // Calculate balance (no credit system)
     const planPrice = typeof newPlan.price === 'number' ? newPlan.price : parseFloat(newPlan.price) || 0
-    const existingCredit = typeof existingStudent.credit === 'number' ? existingStudent.credit : parseFloat(existingStudent.credit) || 0
     const newPayment = paid || 0
     
-    // Carry forward existing credit
-    const totalPaid = newPayment + existingCredit
+    // Prevent overpayment
+    if (newPayment > planPrice) {
+      return new Response(
+        JSON.stringify({ error: `Payment amount (₹${newPayment.toFixed(2)}) exceeds plan price (₹${planPrice.toFixed(2)}). Maximum allowed: ₹${planPrice.toFixed(2)}` }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      )
+    }
     
-    // Calculate balance and credit
+    const existingPaid = typeof existingStudent.paid === 'number' ? existingStudent.paid : parseFloat(existingStudent.paid) || 0
+    const totalPaid = Math.round((existingPaid + newPayment) * 100) / 100
+    
+    // Calculate balance
     const balance = Math.max(Math.round((planPrice - totalPaid) * 100) / 100, 0)
-    const credit = Math.max(Math.round((totalPaid > planPrice ? totalPaid - planPrice : 0) * 100) / 100, 0)
+    const credit = 0 // Credit system removed - always set to 0
 
     // Update student
     const { data: updatedStudent, error: updateError } = await supabase
@@ -193,7 +200,6 @@ serve(async (req) => {
             oldEndDate: existingStudent.endDate,
             newEndDate: newEndDate.toISOString().split('T')[0],
             paid: newPayment,
-            existingCredit: existingCredit,
             totalPaid: totalPaid,
           },
         })

@@ -92,12 +92,24 @@ serve(async (req) => {
       )
     }
 
-    // Calculate new paid amount and balance
+    // Calculate current balance and validate payment amount
     const existingPaid = Number(student.paid || 0)
     const studentPrice = Number(student.price || 0)
+    const currentBalance = Math.round((studentPrice - existingPaid) * 100) / 100
+
+    // Prevent payments exceeding the remaining balance
+    if (amount > currentBalance) {
+      return new Response(
+        JSON.stringify({
+          error: `Payment amount (₹${amount.toFixed(2)}) exceeds remaining balance (₹${currentBalance.toFixed(2)}). Maximum allowed: ₹${currentBalance.toFixed(2)}`
+        }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      )
+    }
+
     const newPaid = Math.round((existingPaid + amount) * 100) / 100
-    const newBalance = Math.round((studentPrice - newPaid) * 100) / 100
-    const credit = newPaid > studentPrice ? Math.round((newPaid - studentPrice) * 100) / 100 : 0
+    const newBalance = Math.max(Math.round((studentPrice - newPaid) * 100) / 100, 0)
+    const credit = 0 // Credit system removed - always set to 0
 
     // Use RPC function for transaction-safe payment creation
     // This ensures both payment creation and student balance update happen atomically

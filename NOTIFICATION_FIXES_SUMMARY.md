@@ -119,3 +119,5 @@ GROUP BY s.id, s.name;
 3. Test the notification flow end-to-end
 4. Verify badge updates when notifications are read
 
+
+

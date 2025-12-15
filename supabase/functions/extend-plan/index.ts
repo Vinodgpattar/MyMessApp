@@ -39,12 +39,19 @@ serve(async (req) => {
     }
 
     // Get request body
-    const { studentId, days, paid = 0, extendFromToday = true } = await req.json()
+    const { studentId, days, startDate, paid = 0 } = await req.json()
 
     // Validation
     if (!studentId || !days || days <= 0) {
       return new Response(
         JSON.stringify({ error: 'Invalid request: studentId and days (positive number) are required' }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      )
+    }
+
+    if (!startDate) {
+      return new Response(
+        JSON.stringify({ error: 'Start date is required' }),
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       )
     }
@@ -87,57 +94,45 @@ serve(async (req) => {
       )
     }
 
-    // Calculate dates
+    // Parse and validate start date
+    const [year, month, day] = startDate.split('-').map(Number)
+    const startDateObj = new Date(Date.UTC(year, month - 1, day, 0, 0, 0, 0))
     const today = new Date()
-    today.setHours(0, 0, 0, 0)
+    const todayUTC = new Date(Date.UTC(today.getUTCFullYear(), today.getUTCMonth(), today.getUTCDate(), 0, 0, 0, 0))
     
-    const currentEndDate = new Date(existingStudent.endDate)
-    currentEndDate.setHours(0, 0, 0, 0)
+    // Validate start date is not in the past
+    if (startDateObj.getTime() < todayUTC.getTime()) {
+      return new Response(
+        JSON.stringify({ error: 'Start date cannot be in the past' }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      )
+    }
     
-    // Calculate new end date
+    // Calculate new end date: startDate + days
     const daysToAdd = days
-    const newEndDate = new Date(extendFromToday ? today : currentEndDate)
-    newEndDate.setDate(newEndDate.getDate() + daysToAdd)
-    newEndDate.setHours(0, 0, 0, 0)
+    const newEndDate = new Date(startDateObj)
+    newEndDate.setUTCDate(newEndDate.getUTCDate() + daysToAdd)
+    newEndDate.setUTCHours(0, 0, 0, 0)
 
-    // Calculate costs
-    const planPrice = typeof existingStudent.price === 'number' ? existingStudent.price : parseFloat(existingStudent.price) || 0
-    const planDuration = existingStudent.plan?.durationDays || 1
-    const pricePerDay = planDuration > 0 ? planPrice / planDuration : 0
-    
-    // Calculate additional cost if extending from today (when plan hasn't expired yet)
-    const daysOverlap = currentEndDate > today 
-      ? Math.ceil((currentEndDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24)) 
-      : 0
-    const additionalCost = daysOverlap > 0 && daysToAdd > daysOverlap 
-      ? Math.round(pricePerDay * (daysToAdd - daysOverlap) * 100) / 100 
-      : 0
-
-    // Calculate balance with credit carry-forward
-    const existingPaid = typeof existingStudent.paid === 'number' ? existingStudent.paid : parseFloat(existingStudent.paid) || 0
-    const existingCredit = typeof existingStudent.credit === 'number' ? existingStudent.credit : parseFloat(existingStudent.credit) || 0
+    // Manager can enter any payment amount (no extension cost calculation)
     const newPayment = paid || 0
-    
-    // Carry forward existing credit
-    const totalNewPayment = newPayment + existingCredit
-    const newPaid = existingPaid + newPayment + existingCredit
-    const newPrice = extendFromToday && additionalCost > 0
-      ? planPrice + additionalCost
-      : planPrice
 
-    // Calculate balance and credit
-    const balance = Math.max(Math.round((newPrice - newPaid) * 100) / 100, 0)
-    const credit = Math.max(Math.round((newPaid > newPrice ? newPaid - newPrice : 0) * 100) / 100, 0)
+    // Calculate balance (no credit system, price stays the same)
+    const planPrice = typeof existingStudent.price === 'number' ? existingStudent.price : parseFloat(existingStudent.price) || 0
+    const existingPaid = typeof existingStudent.paid === 'number' ? existingStudent.paid : parseFloat(existingStudent.paid) || 0
+    const newPaid = Math.round((existingPaid + newPayment) * 100) / 100
+    // Price remains the same (no automatic extension cost calculation)
+    const balance = Math.max(Math.round((planPrice - newPaid) * 100) / 100, 0)
 
     // Update student in transaction
     const { data: updatedStudent, error: updateError } = await supabase
       .from('Student')
       .update({
         endDate: newEndDate.toISOString().split('T')[0],
-        price: extendFromToday && additionalCost > 0 ? Math.round(newPrice * 100) / 100 : undefined,
+        // Price remains the same (no automatic extension cost calculation)
         paid: Math.round(newPaid * 100) / 100,
         balance: Math.round(balance * 100) / 100,
-        credit: Math.round(credit * 100) / 100,
+        credit: 0, // Credit system removed - always set to 0
         isActive: true, // Reactivate if inactive
       })
       .eq('id', studentId)
@@ -168,12 +163,10 @@ serve(async (req) => {
           details: {
             action: 'extend_plan',
             days: days,
+            startDate: startDate,
             oldEndDate: existingStudent.endDate,
             newEndDate: newEndDate.toISOString().split('T')[0],
-            additionalCost: extendFromToday ? additionalCost : 0,
             paid: newPayment,
-            existingCredit: existingCredit,
-            totalNewPayment: totalNewPayment,
           },
         })
     } catch (auditError) {
@@ -185,7 +178,6 @@ serve(async (req) => {
       JSON.stringify({
         message: 'Plan extended successfully',
         student: updatedStudent,
-        additionalCost: extendFromToday ? additionalCost : 0,
       }),
       { 
         status: 200, 

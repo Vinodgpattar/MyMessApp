@@ -105,31 +105,6 @@ export function CredentialsDisplay({
             </View>
           </View>
 
-          {/* PIN */}
-          <View style={styles.credentialItem}>
-            <Text variant="labelMedium" style={styles.credentialLabel}>
-              4-Digit PIN (for attendance)
-            </Text>
-            <View style={styles.credentialValueContainer}>
-              <Text variant="headlineMedium" style={styles.pinValue}>
-                {showPin ? pin : '••••'}
-              </Text>
-              <View style={styles.credentialActions}>
-                <IconButton
-                  icon={showPin ? 'eye-off' : 'eye'}
-                  size={20}
-                  onPress={() => setShowPin(!showPin)}
-                  style={styles.iconButton}
-                />
-                <IconButton
-                  icon="content-copy"
-                  size={20}
-                  onPress={() => copyToClipboard(pin, 'PIN')}
-                  style={styles.copyButton}
-                />
-              </View>
-            </View>
-          </View>
         </Card.Content>
       </Card>
 
@@ -143,19 +118,13 @@ export function CredentialsDisplay({
             <View style={styles.instructionItem}>
               <MaterialCommunityIcons name="check-circle" size={16} color="#10b981" />
               <Text variant="bodySmall" style={styles.instructionText}>
-                Dashboard Login: Use email and password
+                Login to the Chinnamma Ootada Mane student app using your email and password.
               </Text>
             </View>
             <View style={styles.instructionItem}>
               <MaterialCommunityIcons name="check-circle" size={16} color="#10b981" />
               <Text variant="bodySmall" style={styles.instructionText}>
-                Attendance: Scan QR code, then enter 4-digit PIN
-              </Text>
-            </View>
-            <View style={styles.instructionItem}>
-              <MaterialCommunityIcons name="check-circle" size={16} color="#10b981" />
-              <Text variant="bodySmall" style={styles.instructionText}>
-                PIN can be reset from dashboard settings
+                Keep your password secure and do not share it with anyone.
               </Text>
             </View>
           </View>

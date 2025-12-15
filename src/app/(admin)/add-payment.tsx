@@ -82,6 +82,15 @@ export default function AddPaymentScreen() {
       newErrors.method = 'Please select a payment method'
     }
 
+    // Validate payment doesn't exceed balance
+    if (selectedStudent && amount) {
+      const amountNum = parseFloat(amount)
+      const currentBalance = Number(selectedStudent.balance)
+      if (amountNum > currentBalance) {
+        newErrors.amount = `Amount exceeds remaining balance (₹${currentBalance.toFixed(2)}). Maximum allowed: ₹${currentBalance.toFixed(2)}`
+      }
+    }
+
     if (Object.keys(newErrors).length > 0) {
       setErrors(newErrors)
       return

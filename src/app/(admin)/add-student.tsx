@@ -148,27 +148,24 @@ export default function AddStudentScreen() {
         paid: parseFloat(formData.paid) || 0,
       })
 
+      // Automatically send credentials email after successful creation
+      try {
+        await sendEmailMutation.mutateAsync({
+          studentId: student.id,
+          password: student.password,
+        })
+        setSnackbarMessage('Credentials email sent successfully')
+        setSnackbarVisible(true)
+      } catch (emailErr: any) {
+        setSnackbarMessage(emailErr.message || 'Student created, but failed to send credentials email')
+        setSnackbarVisible(true)
+      }
+
       setCreatedStudent(student)
       setShowCredentials(true)
     } catch (err: any) {
       const errorMessage = err.message || 'Failed to create student'
       setSnackbarMessage(errorMessage)
-      setSnackbarVisible(true)
-    }
-  }
-
-  const handleSendEmail = async () => {
-    if (!createdStudent) return
-
-    try {
-      await sendEmailMutation.mutateAsync({ 
-        studentId: createdStudent.id,
-        password: createdStudent.password
-      })
-      setSnackbarMessage('Credentials email sent successfully')
-      setSnackbarVisible(true)
-    } catch (err: any) {
-      setSnackbarMessage(err.message || 'Failed to send email')
       setSnackbarVisible(true)
     }
   }
@@ -186,7 +183,6 @@ export default function AddStudentScreen() {
         pin={createdStudent.pin}
         studentName={createdStudent.name}
         rollNumber={createdStudent.rollNumber}
-        onSendEmail={handleSendEmail}
         onDone={handleDone}
       />
     )

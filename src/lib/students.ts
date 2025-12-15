@@ -53,8 +53,8 @@ export interface UpdateStudentData {
 
 export interface ExtendPlanData {
   days: number
+  startDate: string // YYYY-MM-DD format
   paid?: number
-  extendFromToday?: boolean
 }
 
 export interface RenewPlanData {
@@ -592,8 +592,8 @@ export async function extendPlan(
       body: {
         studentId: id,
         days: data.days,
+        startDate: data.startDate,
         paid: data.paid || 0,
-        extendFromToday: data.extendFromToday !== undefined ? data.extendFromToday : true,
       },
       headers: {
         Authorization: `Bearer ${session.access_token}`,

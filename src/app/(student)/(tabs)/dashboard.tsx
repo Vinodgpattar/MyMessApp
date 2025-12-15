@@ -1,5 +1,5 @@
 import React, { useState } from 'react'
-import { View, StyleSheet, ScrollView, ActivityIndicator } from 'react-native'
+import { View, StyleSheet, ScrollView, ActivityIndicator, TouchableOpacity } from 'react-native'
 import { Text, Card, Button } from 'react-native-paper'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { MaterialCommunityIcons } from '@expo/vector-icons'
@@ -91,7 +91,7 @@ export default function StudentDashboardScreen() {
     <View style={styles.container}>
       {/* Header */}
       <View style={[styles.header, { paddingTop: insets.top + 8 }]}>
-        <View>
+        <View style={styles.headerLeft}>
           {isLoading ? (
             <>
               <Text variant="headlineSmall" style={styles.title}>
@@ -120,6 +120,29 @@ export default function StudentDashboardScreen() {
               </Text>
             </>
           )}
+        </View>
+        <View style={styles.headerActions}>
+          <TouchableOpacity
+            style={styles.headerButton}
+            onPress={() => router.push('/(student)/(tabs)/notifications')}
+            activeOpacity={0.7}
+          >
+            <View style={styles.iconContainer}>
+              <MaterialCommunityIcons name="bell-outline" size={24} color="#1F2937" />
+              {unreadCount > 0 && (
+                <View style={styles.badge}>
+                  <Text style={styles.badgeText}>{unreadCount > 9 ? '9+' : unreadCount}</Text>
+                </View>
+              )}
+            </View>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={styles.headerButton}
+            onPress={() => router.push('/(student)/(tabs)/profile')}
+            activeOpacity={0.7}
+          >
+            <MaterialCommunityIcons name="account-circle" size={28} color="#1F2937" />
+          </TouchableOpacity>
         </View>
       </View>
 
@@ -260,14 +283,6 @@ export default function StudentDashboardScreen() {
                   ₹{student.balance.toFixed(2)}
                 </Text>
               </View>
-              {student.credit > 0 && (
-                <View style={styles.balanceRow}>
-                  <Text variant="bodyMedium" style={styles.balanceLabel}>Credit:</Text>
-                  <Text variant="headlineSmall" style={styles.creditValue}>
-                    ₹{student.credit.toFixed(2)}
-                  </Text>
-                </View>
-              )}
             </View>
           </Card.Content>
         </Card>
@@ -325,6 +340,43 @@ const styles = StyleSheet.create({
     paddingBottom: 12,
     borderBottomWidth: 1,
     borderBottomColor: '#F3F4F6',
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  headerLeft: {
+    flex: 1,
+  },
+  headerActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  headerButton: {
+    padding: 4,
+    position: 'relative',
+  },
+  iconContainer: {
+    position: 'relative',
+  },
+  badge: {
+    position: 'absolute',
+    top: -4,
+    right: -8,
+    backgroundColor: '#EF4444',
+    borderRadius: 10,
+    minWidth: 20,
+    height: 20,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 4,
+    borderWidth: 2,
+    borderColor: '#FFFFFF',
+  },
+  badgeText: {
+    color: '#FFFFFF',
+    fontSize: 10,
+    fontWeight: '700',
   },
   title: {
     fontWeight: '700',

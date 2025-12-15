@@ -68,7 +68,7 @@ export default function StudentDetailScreen() {
     }
   }
 
-  const handleExtend = async (data: { days: number; paid: number; extendFromToday: boolean }) => {
+  const handleExtend = async (data: { days: number; startDate: string; paid: number }) => {
     try {
       await extendMutation.mutateAsync({ id: studentId, data })
       setExtendModalVisible(false)
@@ -249,8 +249,8 @@ export default function StudentDetailScreen() {
         </Card.Content>
       </Card>
 
-      {/* Plan Actions Card - Show when expired or expiring soon */}
-      {(isExpired || new Date(student.endDate) <= new Date(Date.now() + 7 * 24 * 60 * 60 * 1000)) && (
+      {/* Plan Actions Card - Show only when expired */}
+      {isExpired && (
         <Card style={styles.card}>
           <Card.Content>
             <Text variant="titleMedium" style={styles.cardTitle}>
@@ -309,35 +309,6 @@ export default function StudentDetailScreen() {
             >
               {formatCurrency(student.balance)}
             </Text>
-          </View>
-          {student.credit > 0 && (
-            <View style={styles.detailRow}>
-              <Text variant="bodySmall" style={styles.detailLabel}>Credit:</Text>
-              <Text variant="bodyMedium" style={[styles.detailValue, styles.creditText]}>
-                {formatCurrency(student.credit)}
-              </Text>
-            </View>
-          )}
-        </Card.Content>
-      </Card>
-
-      {/* PIN Card */}
-      <Card style={styles.card}>
-        <Card.Content>
-          <Text variant="titleMedium" style={styles.cardTitle}>
-            Attendance PIN
-          </Text>
-          <View style={styles.pinContainer}>
-            <Text variant="headlineMedium" style={styles.pinValue}>
-              {showPin ? student.pin : '••••'}
-            </Text>
-            <Button
-              mode="text"
-              onPress={() => setShowPin(!showPin)}
-              icon={showPin ? 'eye-off' : 'eye'}
-            >
-              {showPin ? 'Hide' : 'Show'}
-            </Button>
           </View>
         </Card.Content>
       </Card>

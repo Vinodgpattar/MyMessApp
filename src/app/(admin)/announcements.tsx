@@ -1,12 +1,13 @@
 import React, { useState, useCallback } from 'react'
-import { View, StyleSheet, ScrollView, RefreshControl, Image, TouchableOpacity, Modal } from 'react-native'
-import { Text, Card, ActivityIndicator, Chip } from 'react-native-paper'
+import { View, StyleSheet, ScrollView, RefreshControl, Image, TouchableOpacity, ActivityIndicator, Alert } from 'react-native'
+import { Text, Button } from 'react-native-paper'
 import { useRouter } from 'expo-router'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { MaterialCommunityIcons } from '@expo/vector-icons'
-import { format, formatDistanceToNow } from 'date-fns'
+import { formatDistanceToNow } from 'date-fns'
 import { useFocusEffect } from 'expo-router'
-import { getAdminAnnouncements, AdminAnnouncement } from '@/lib/announcements'
+import { LinearGradient } from 'expo-linear-gradient'
+import { getAdminAnnouncementsWithCleanup, deleteAdminAnnouncement, AdminAnnouncement } from '@/lib/announcements'
 
 export default function AnnouncementsScreen() {
   const router = useRouter()
@@ -14,12 +15,10 @@ export default function AnnouncementsScreen() {
   const [announcements, setAnnouncements] = useState<AdminAnnouncement[]>([])
   const [loading, setLoading] = useState(true)
   const [refreshing, setRefreshing] = useState(false)
-  const [selectedAnnouncement, setSelectedAnnouncement] = useState<AdminAnnouncement | null>(null)
-  const [modalVisible, setModalVisible] = useState(false)
 
   const fetchAnnouncements = useCallback(async () => {
     try {
-      const result = await getAdminAnnouncements()
+      const result = await getAdminAnnouncementsWithCleanup()
       if (result.error) {
         setAnnouncements([])
       } else {
@@ -46,30 +45,34 @@ export default function AnnouncementsScreen() {
   }
 
   const handleAnnouncementPress = (announcement: AdminAnnouncement) => {
-    setSelectedAnnouncement(announcement)
-    setModalVisible(true)
+    router.push(`/(admin)/announcement-details?id=${announcement.id}`)
   }
 
-  const getTargetTypeLabel = (targetType: string): string => {
-    switch (targetType) {
-      case 'all':
-        return 'All Students'
-      case 'active':
-        return 'Active Only'
-      case 'expiring':
-        return 'Expiring Soon'
-      case 'expired':
-        return 'Expired'
-      case 'custom':
-        return 'Custom Selection'
-      default:
-        return targetType
-    }
-  }
-
-  const getReadPercentage = (readCount: number, totalSent: number): number => {
-    if (totalSent === 0) return 0
-    return Math.round((readCount / totalSent) * 100)
+  const handleDeleteAnnouncement = (announcement: AdminAnnouncement, event: any) => {
+    event.stopPropagation() // Prevent navigation when clicking delete
+    Alert.alert(
+      'Delete Announcement',
+      `Are you sure you want to delete "${announcement.title}"? This action cannot be undone.`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Delete',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              const result = await deleteAdminAnnouncement(announcement.id)
+              if (result.success) {
+                setAnnouncements((prev) => prev.filter((a) => a.id !== announcement.id))
+              } else if (result.error) {
+                Alert.alert('Error', result.error.message || 'Failed to delete announcement')
+              }
+            } catch (error: any) {
+              Alert.alert('Error', error?.message || 'Failed to delete announcement')
+            }
+          },
+        },
+      ]
+    )
   }
 
   const formatTime = (dateString: string) => {
@@ -83,9 +86,9 @@ export default function AnnouncementsScreen() {
     } else if (daysDiff === 1) {
       return 'Yesterday'
     } else if (daysDiff < 7) {
-      return format(new Date(date), 'EEEE')
+      return formatDistanceToNow(new Date(date), { addSuffix: true })
     } else {
-      return format(new Date(date), 'MMM dd, yyyy')
+      return formatDistanceToNow(new Date(date), { addSuffix: true })
     }
   }
 
@@ -103,190 +106,109 @@ export default function AnnouncementsScreen() {
       </View>
 
       {loading ? (
-        <View style={styles.inlineLoadingContainer}>
+        <View style={styles.loadingContainer}>
           <ActivityIndicator size="large" color="#7B2CBF" />
+        </View>
+      ) : announcements.length === 0 ? (
+        <View style={styles.emptyContainer}>
+          <MaterialCommunityIcons name="bullhorn-outline" size={64} color="#D1D5DB" />
+          <Text variant="titleMedium" style={styles.emptyTitle}>
+            No Announcements Yet
+          </Text>
+          <Text variant="bodyMedium" style={styles.emptyText}>
+            Announcements you send will appear here
+          </Text>
+          <TouchableOpacity
+            style={styles.sendButton}
+            onPress={() => router.push('/(admin)/send-announcement')}
+          >
+            <MaterialCommunityIcons name="plus" size={20} color="#FFFFFF" />
+            <Text style={styles.sendButtonText}>Send First Announcement</Text>
+          </TouchableOpacity>
         </View>
       ) : (
         <ScrollView
           style={styles.scrollView}
-          contentContainerStyle={styles.scrollContent}
+          contentContainerStyle={styles.content}
           refreshControl={<RefreshControl refreshing={refreshing} onRefresh={handleRefresh} />}
+          showsVerticalScrollIndicator={false}
         >
-        {announcements.length === 0 ? (
-          <View style={styles.emptyContainer}>
-            <MaterialCommunityIcons name="bullhorn-outline" size={64} color="#9CA3AF" />
-            <Text variant="titleLarge" style={styles.emptyTitle}>
-              No Announcements Yet
-            </Text>
-            <Text variant="bodyMedium" style={styles.emptyText}>
-              Announcements you send will appear here
-            </Text>
-            <TouchableOpacity
-              style={styles.sendButton}
-              onPress={() => router.push('/(admin)/send-announcement')}
-            >
-              <MaterialCommunityIcons name="plus" size={20} color="#FFFFFF" />
-              <Text style={styles.sendButtonText}>Send First Announcement</Text>
-            </TouchableOpacity>
-          </View>
-        ) : (
-          announcements.map((announcement) => {
-            const readPercentage = getReadPercentage(announcement.readCount, announcement.totalSent)
+          {announcements.map((announcement) => {
+            const icon = 'bullhorn'
+            const colors = ['#6366F1', '#4F46E5'] as [string, string]
+            const timeAgo = announcement.sentAt && !isNaN(new Date(announcement.sentAt).getTime())
+              ? formatTime(announcement.sentAt)
+              : 'Recently'
+
             return (
               <TouchableOpacity
                 key={announcement.id}
                 onPress={() => handleAnnouncementPress(announcement)}
-                activeOpacity={0.7}
+                activeOpacity={0.8}
+                style={styles.notificationContainer}
               >
-                <Card style={styles.card}>
-                  <Card.Content>
-                    {/* Header with image and title */}
-                    <View style={styles.cardHeader}>
-                      {announcement.imageUrl ? (
+                <LinearGradient
+                  colors={colors}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 0 }}
+                  style={styles.notificationBanner}
+                >
+                  <View style={styles.bannerContent}>
+                    <View style={styles.bannerLeft}>
+                      <View style={styles.iconContainer}>
+                        <MaterialCommunityIcons name={icon as any} size={24} color="#fff" />
+                      </View>
+                      <View style={styles.textContainer}>
+                        <View style={styles.titleRow}>
+                          <Text variant="titleMedium" style={styles.notificationTitle} numberOfLines={2}>
+                            {announcement.title}
+                          </Text>
+                        </View>
+                        <Text variant="bodyMedium" style={styles.notificationMessage} numberOfLines={3}>
+                          {announcement.message}
+                        </Text>
+                        <View style={styles.metaRow}>
+                          <Text variant="labelSmall" style={styles.notificationTime}>
+                            {timeAgo}
+                          </Text>
+                          <View style={styles.statsRow}>
+                            <View style={styles.statBadge}>
+                              <MaterialCommunityIcons name="send" size={12} color="#fff" />
+                              <Text style={styles.statText}>{announcement.totalSent}</Text>
+                            </View>
+                            <View style={styles.statBadge}>
+                              <MaterialCommunityIcons name="eye" size={12} color="#fff" />
+                              <Text style={styles.statText}>{announcement.readCount}</Text>
+                            </View>
+                          </View>
+                        </View>
+                      </View>
+                    </View>
+                    <View style={styles.bannerRight}>
+                      {announcement.imageUrl && (
                         <Image
                           source={{ uri: announcement.imageUrl }}
                           style={styles.thumbnail}
                           resizeMode="cover"
                         />
-                      ) : (
-                        <View style={[styles.thumbnail, styles.thumbnailPlaceholder]}>
-                          <MaterialCommunityIcons name="text" size={24} color="#9CA3AF" />
-                        </View>
                       )}
-                      <View style={styles.cardHeaderText}>
-                        <Text variant="titleMedium" style={styles.cardTitle} numberOfLines={2}>
-                          {announcement.title}
-                        </Text>
-                        <Text variant="bodySmall" style={styles.cardTime}>
-                          {formatTime(announcement.sentAt)}
-                        </Text>
-                      </View>
-                    </View>
-
-                    {/* Message preview */}
-                    <Text variant="bodyMedium" style={styles.cardMessage} numberOfLines={2}>
-                      {announcement.message}
-                    </Text>
-
-                    {/* Stats and target */}
-                    <View style={styles.cardFooter}>
-                      <View style={styles.statsRow}>
-                        <View style={styles.statItem}>
-                          <MaterialCommunityIcons name="send" size={16} color="#6B7280" />
-                          <Text style={styles.statText}>{announcement.totalSent} sent</Text>
-                        </View>
-                        <View style={styles.statItem}>
-                          <MaterialCommunityIcons name="eye" size={16} color="#6B7280" />
-                          <Text style={styles.statText}>{announcement.readCount} read</Text>
-                        </View>
-                        <View style={styles.statItem}>
-                          <MaterialCommunityIcons name="percent" size={16} color="#6B7280" />
-                          <Text style={styles.statText}>{readPercentage}%</Text>
-                        </View>
-                      </View>
-                      <Chip
-                        mode="outlined"
-                        style={styles.targetChip}
-                        textStyle={styles.targetChipText}
+                      <TouchableOpacity
+                        onPress={(e) => handleDeleteAnnouncement(announcement, e)}
+                        style={styles.deleteButton}
+                        hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
                       >
-                        {getTargetTypeLabel(announcement.targetType)}
-                      </Chip>
+                        <MaterialCommunityIcons name="delete-outline" size={20} color="#fff" />
+                      </TouchableOpacity>
+                      <MaterialCommunityIcons name="chevron-right" size={24} color="#fff" />
                     </View>
-                  </Card.Content>
-                </Card>
+                  </View>
+                </LinearGradient>
               </TouchableOpacity>
             )
-          })
-        )}
+          })}
+          <View style={styles.bottomPadding} />
         </ScrollView>
       )}
-
-      {/* Detail Modal */}
-      <Modal
-        visible={modalVisible}
-        animationType="slide"
-        transparent={true}
-        onRequestClose={() => setModalVisible(false)}
-      >
-        <View style={styles.modalContainer}>
-          <View style={styles.modalContent}>
-            {selectedAnnouncement && (
-              <>
-                {/* Modal Header */}
-                <View style={styles.modalHeader}>
-                  <Text variant="headlineSmall" style={styles.modalTitle}>
-                    Announcement Details
-                  </Text>
-                  <TouchableOpacity
-                    onPress={() => setModalVisible(false)}
-                    style={styles.modalCloseButton}
-                  >
-                    <MaterialCommunityIcons name="close" size={24} color="#1F2937" />
-                  </TouchableOpacity>
-                </View>
-
-                <ScrollView style={styles.modalScrollView}>
-                  {/* Image */}
-                  {selectedAnnouncement.imageUrl && (
-                    <Image
-                      source={{ uri: selectedAnnouncement.imageUrl }}
-                      style={styles.modalImage}
-                      resizeMode="cover"
-                    />
-                  )}
-
-                  {/* Title */}
-                  <Text variant="titleLarge" style={styles.modalDetailTitle}>
-                    {selectedAnnouncement.title}
-                  </Text>
-
-                  {/* Message */}
-                  <Text variant="bodyLarge" style={styles.modalDetailMessage}>
-                    {selectedAnnouncement.message}
-                  </Text>
-
-                  {/* Stats */}
-                  <View style={styles.modalStats}>
-                    <View style={styles.modalStatCard}>
-                      <MaterialCommunityIcons name="send" size={24} color="#7B2CBF" />
-                      <Text style={styles.modalStatValue}>{selectedAnnouncement.totalSent}</Text>
-                      <Text style={styles.modalStatLabel}>Total Sent</Text>
-                    </View>
-                    <View style={styles.modalStatCard}>
-                      <MaterialCommunityIcons name="eye" size={24} color="#7B2CBF" />
-                      <Text style={styles.modalStatValue}>{selectedAnnouncement.readCount}</Text>
-                      <Text style={styles.modalStatLabel}>Read</Text>
-                    </View>
-                    <View style={styles.modalStatCard}>
-                      <MaterialCommunityIcons name="percent" size={24} color="#7B2CBF" />
-                      <Text style={styles.modalStatValue}>
-                        {getReadPercentage(selectedAnnouncement.readCount, selectedAnnouncement.totalSent)}%
-                      </Text>
-                      <Text style={styles.modalStatLabel}>Read Rate</Text>
-                    </View>
-                  </View>
-
-                  {/* Details */}
-                  <View style={styles.modalDetails}>
-                    <View style={styles.modalDetailRow}>
-                      <Text style={styles.modalDetailLabel}>Target:</Text>
-                      <Chip mode="outlined" style={styles.modalChip}>
-                        {getTargetTypeLabel(selectedAnnouncement.targetType)}
-                      </Chip>
-                    </View>
-                    <View style={styles.modalDetailRow}>
-                      <Text style={styles.modalDetailLabel}>Sent:</Text>
-                      <Text style={styles.modalDetailValue}>
-                        {format(new Date(selectedAnnouncement.sentAt), 'MMM dd, yyyy h:mm a')}
-                      </Text>
-                    </View>
-                  </View>
-                </ScrollView>
-              </>
-            )}
-          </View>
-        </View>
-      </Modal>
     </View>
   )
 }
@@ -317,24 +239,18 @@ const styles = StyleSheet.create({
   placeholder: {
     width: 32,
   },
-  inlineLoadingContainer: {
+  loadingContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
     padding: 40,
-  },
-  scrollView: {
-    flex: 1,
-  },
-  scrollContent: {
-    padding: 16,
-    paddingBottom: 32,
   },
   emptyContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
     paddingVertical: 64,
+    gap: 12,
   },
   emptyTitle: {
     marginTop: 16,
@@ -361,155 +277,118 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '600',
   },
-  card: {
-    marginBottom: 12,
-    borderRadius: 12,
-    backgroundColor: '#FFFFFF',
+  scrollView: {
+    flex: 1,
   },
-  cardHeader: {
-    flexDirection: 'row',
+  content: {
+    padding: 16,
+  },
+  notificationContainer: {
     marginBottom: 12,
+  },
+  notificationBanner: {
+    borderRadius: 12,
+    elevation: 2,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 4,
+    overflow: 'hidden',
+  },
+  bannerContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: 16,
+    paddingHorizontal: 16,
+  },
+  bannerLeft: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 12,
+    flex: 1,
+  },
+  iconContainer: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: 'rgba(255, 255, 255, 0.25)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  textContainer: {
+    flex: 1,
+    gap: 4,
+  },
+  titleRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 8,
+    marginBottom: 2,
+  },
+  notificationTitle: {
+    color: '#fff',
+    fontWeight: '700',
+    fontSize: 16,
+    lineHeight: 22,
+    flex: 1,
+  },
+  notificationMessage: {
+    color: '#fff',
+    opacity: 0.95,
+    fontSize: 13,
+    lineHeight: 18,
+    marginTop: 2,
+  },
+  metaRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginTop: 4,
+    gap: 8,
+  },
+  notificationTime: {
+    color: '#fff',
+    opacity: 0.85,
+    fontSize: 11,
+  },
+  statsRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  statBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 8,
+  },
+  statText: {
+    color: '#fff',
+    fontSize: 10,
+    fontWeight: '600',
+  },
+  bannerRight: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginLeft: 12,
   },
   thumbnail: {
     width: 60,
     height: 60,
     borderRadius: 8,
-    marginRight: 12,
+    backgroundColor: 'rgba(255, 255, 255, 0.2)',
   },
-  thumbnailPlaceholder: {
-    backgroundColor: '#F3F4F6',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  cardHeaderText: {
-    flex: 1,
-  },
-  cardTitle: {
-    fontWeight: '600',
-    color: '#1F2937',
-    marginBottom: 4,
-  },
-  cardTime: {
-    color: '#6B7280',
-  },
-  cardMessage: {
-    color: '#4B5563',
-    marginBottom: 12,
-  },
-  cardFooter: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-  statsRow: {
-    flexDirection: 'row',
-    gap: 16,
-  },
-  statItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-  },
-  statText: {
-    fontSize: 12,
-    color: '#6B7280',
-  },
-  targetChip: {
-    height: 28,
-  },
-  targetChipText: {
-    fontSize: 11,
-  },
-  modalContainer: {
-    flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
-    justifyContent: 'flex-end',
-  },
-  modalContent: {
-    backgroundColor: '#FFFFFF',
-    borderTopLeftRadius: 20,
-    borderTopRightRadius: 20,
-    maxHeight: '90%',
-    paddingBottom: 32,
-  },
-  modalHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    padding: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: '#F3F4F6',
-  },
-  modalTitle: {
-    fontWeight: '700',
-    color: '#1F2937',
-  },
-  modalCloseButton: {
+  deleteButton: {
     padding: 4,
+    borderRadius: 8,
+    backgroundColor: 'rgba(255, 255, 255, 0.2)',
   },
-  modalScrollView: {
-    flex: 1,
-  },
-  modalImage: {
-    width: '100%',
-    height: 200,
-    backgroundColor: '#F3F4F6',
-  },
-  modalDetailTitle: {
-    fontWeight: '700',
-    color: '#1F2937',
-    margin: 16,
-    marginBottom: 8,
-  },
-  modalDetailMessage: {
-    color: '#4B5563',
-    marginHorizontal: 16,
-    marginBottom: 16,
-    lineHeight: 24,
-  },
-  modalStats: {
-    flexDirection: 'row',
-    justifyContent: 'space-around',
-    paddingVertical: 16,
-    borderTopWidth: 1,
-    borderBottomWidth: 1,
-    borderColor: '#F3F4F6',
-    marginHorizontal: 16,
-    marginBottom: 16,
-  },
-  modalStatCard: {
-    alignItems: 'center',
-    gap: 8,
-  },
-  modalStatValue: {
-    fontSize: 20,
-    fontWeight: '700',
-    color: '#1F2937',
-  },
-  modalStatLabel: {
-    fontSize: 12,
-    color: '#6B7280',
-  },
-  modalDetails: {
-    paddingHorizontal: 16,
-    gap: 12,
-  },
-  modalDetailRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-  modalDetailLabel: {
-    fontSize: 14,
-    color: '#6B7280',
-    fontWeight: '500',
-  },
-  modalDetailValue: {
-    fontSize: 14,
-    color: '#1F2937',
-  },
-  modalChip: {
-    height: 28,
+  bottomPadding: {
+    height: 20,
   },
 })
-

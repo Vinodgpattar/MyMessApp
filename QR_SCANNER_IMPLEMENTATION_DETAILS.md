@@ -753,3 +753,5 @@ See: `src/app/(student)/qr-scanner.tsx` (136 lines)
 6. Test with different devices
 7. Check Expo SDK 54 + expo-camera compatibility
 
+
+

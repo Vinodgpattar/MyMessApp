@@ -2,7 +2,6 @@ import React, { useState } from 'react'
 import { View, StyleSheet, Platform } from 'react-native'
 import { Button, Modal, Portal, Text } from 'react-native-paper'
 import { Picker } from '@react-native-picker/picker'
-import { format } from 'date-fns'
 
 interface SimpleDatePickerProps {
   value: string // YYYY-MM-DD format
@@ -11,6 +10,25 @@ interface SimpleDatePickerProps {
   minimumDate?: Date
   maximumDate?: Date
   disabled?: boolean
+}
+
+// Helper function to format date using native JavaScript (reliable in production)
+const formatDateNative = (date: Date, includeWeekday: boolean = false): string => {
+  try {
+    const day = String(date.getDate()).padStart(2, '0')
+    const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
+    const weekdayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
+    const month = monthNames[date.getMonth()]
+    const year = date.getFullYear()
+    
+    if (includeWeekday) {
+      const weekday = weekdayNames[date.getDay()]
+      return `${day} ${month} ${year} (${weekday})`
+    }
+    return `${day} ${month} ${year}`
+  } catch {
+    return date.toLocaleDateString()
+  }
 }
 
 export function SimpleDatePicker({
@@ -29,7 +47,7 @@ export function SimpleDatePicker({
   const formatDisplayDate = (dateStr: string) => {
     if (!dateStr) return 'Select Date'
     try {
-      return format(new Date(dateStr), 'dd MMM yyyy')
+      return formatDateNative(new Date(dateStr), false)
     } catch {
       return dateStr
     }
@@ -149,7 +167,7 @@ export function SimpleDatePicker({
               {dates.map((date, index) => (
                 <Picker.Item
                   key={index}
-                  label={format(date, 'dd MMM yyyy (EEE)')}
+                  label={formatDateNative(date, true)}
                   value={index}
                 />
               ))}

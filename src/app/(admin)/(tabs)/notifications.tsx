@@ -1,4 +1,4 @@
-import { View, StyleSheet, ScrollView, TouchableOpacity, RefreshControl } from 'react-native'
+import { View, StyleSheet, ScrollView, TouchableOpacity, RefreshControl, GestureResponderEvent } from 'react-native'
 import { Text, Card, Button, Divider } from 'react-native-paper'
 import { useRouter } from 'expo-router'
 import { useNotifications } from '@/context/NotificationContext'
@@ -11,7 +11,7 @@ import { useFocusEffect } from 'expo-router'
 export default function NotificationsScreen() {
   const router = useRouter()
   const insets = useSafeAreaInsets()
-  const { notificationHistory, clearHistory, isEnabled, permissionsGranted } = useNotifications()
+  const { notificationHistory, clearHistory, deleteFromHistory, isEnabled, permissionsGranted } = useNotifications()
   const [refreshing, setRefreshing] = useState(false)
 
   useFocusEffect(
@@ -36,6 +36,12 @@ export default function NotificationsScreen() {
 
   const handleClearHistory = async () => {
     await clearHistory()
+  }
+
+  const handleDeleteNotification = async (notificationId: string, event: GestureResponderEvent) => {
+    // Prevent triggering the card onPress navigation
+    event.stopPropagation()
+    await deleteFromHistory(notificationId)
   }
 
   const formatTime = (timestamp: Date) => {
@@ -147,6 +153,13 @@ export default function NotificationsScreen() {
                           {formatTime(notification.timestamp)}
                         </Text>
                       </View>
+                          <TouchableOpacity
+                            onPress={(e) => handleDeleteNotification(notification.id, e)}
+                            style={styles.deleteButton}
+                            activeOpacity={0.7}
+                          >
+                            <MaterialCommunityIcons name="delete-outline" size={18} color="#6B7280" />
+                          </TouchableOpacity>
                     </View>
                     <Text variant="bodyMedium" style={styles.notificationBody}>
                       {notification.body}
@@ -262,6 +275,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     gap: 12,
     marginBottom: 8,
+    alignItems: 'center',
   },
   notificationIcon: {
     width: 36,
@@ -273,6 +287,10 @@ const styles = StyleSheet.create({
   },
   notificationContent: {
     flex: 1,
+  },
+  deleteButton: {
+    padding: 4,
+    marginLeft: 4,
   },
   notificationTitle: {
     fontWeight: '600',

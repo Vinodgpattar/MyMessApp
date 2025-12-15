@@ -10,6 +10,7 @@ import { lightTheme } from '@/lib/theme'
 import { SafeAreaProvider } from 'react-native-safe-area-context'
 import { GestureHandlerRootView } from 'react-native-gesture-handler'
 import * as Linking from 'expo-linking'
+import * as Updates from 'expo-updates'
 import { markAttendanceFromQR } from '@/lib/qr-attendance'
 import { logger } from '@/lib/logger'
 import { Alert } from 'react-native'
@@ -122,6 +123,101 @@ function InnerLayout() {
 }
 
 export default function RootLayout() {
+  // Check for app updates on startup (production only)
+  React.useEffect(() => {
+    let isMounted = true
+    let checkTimeout: NodeJS.Timeout
+
+    async function checkForUpdates() {
+      try {
+        // Check if updates are enabled
+        if (!Updates.isEnabled) {
+          logger.warn('Updates are not enabled. This might be a development build or updates are disabled.')
+          return
+        }
+
+        // Skip update checks in development
+        if (__DEV__) {
+          logger.debug('Skipping update check in development mode')
+          return
+        }
+
+        // Get current update info for logging
+        const currentUpdateId = Updates.updateId
+        const currentChannel = Updates.channel
+        const currentRuntimeVersion = Updates.runtimeVersion
+
+        logger.info('Checking for app updates...', {
+          currentChannel: currentChannel || 'default',
+          currentUpdateId: currentUpdateId || 'none',
+          currentRuntimeVersion: currentRuntimeVersion || 'none',
+          isEnabled: Updates.isEnabled,
+        })
+
+        // Check for updates (channel is determined by build configuration)
+        const update = await Promise.race([
+          Updates.checkForUpdateAsync(),
+          new Promise<{ isAvailable: false }>((resolve) =>
+            setTimeout(() => {
+              logger.warn('Update check timed out after 15 seconds')
+              resolve({ isAvailable: false })
+            }, 15000)
+          ),
+        ]) as { isAvailable: boolean; manifest?: any }
+
+        if (!isMounted) return
+
+        if (update.isAvailable) {
+          logger.info('Update available, downloading...', {
+            manifestId: update.manifest?.id,
+            createdAt: update.manifest?.createdAt,
+            channel: currentChannel || 'default',
+          })
+
+          const result = await Updates.fetchUpdateAsync()
+          
+          if (!isMounted) return
+
+          logger.info('Update downloaded successfully', {
+            isNew: result.isNew,
+            manifestId: result.manifest?.id,
+          })
+
+          // Only reload if the update is actually new
+          if (result.isNew) {
+            logger.info('Reloading app to apply update...')
+            await Updates.reloadAsync()
+          } else {
+            logger.info('Update was already downloaded, no reload needed')
+          }
+        } else {
+          logger.warn('No update available', {
+            currentChannel: currentChannel || 'default',
+            currentRuntimeVersion: currentRuntimeVersion || 'none',
+            currentUpdateId: currentUpdateId || 'none',
+            message: 'Server reported no update available. This could mean: update not published yet, runtime version mismatch, or channel mismatch.',
+          })
+        }
+      } catch (error) {
+        logger.error('Error checking for updates', error as Error)
+        // Don't retry immediately to avoid spam, let automatic check handle it
+      }
+    }
+
+    // Single check after a short delay to let app initialize
+    // This avoids conflicts with the automatic ON_LOAD check
+    checkTimeout = setTimeout(() => {
+      if (isMounted) {
+        checkForUpdates()
+      }
+    }, 2000)
+
+    return () => {
+      isMounted = false
+      clearTimeout(checkTimeout)
+    }
+  }, [])
+
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
       <SafeAreaProvider>

@@ -136,7 +136,7 @@ export function RenewPlanModal({
   const availablePlans = plans.filter(p => p.id !== student.planId)
 
   const totalAmount = selectedPlan ? selectedPlan.price : 0
-  const balanceAfterPayment = totalAmount - paidNum - student.credit
+  const balanceAfterPayment = totalAmount - paidNum
 
   return (
     <>
@@ -224,34 +224,41 @@ export function RenewPlanModal({
                   
                   {planDropdownVisible && (
                     <View style={styles.dropdownContainer}>
-                      {availablePlans.map((item) => (
-                        <TouchableOpacity
-                          key={item.id}
-                          onPress={() => handlePlanSelect(item.id.toString())}
-                          style={[
-                            styles.dropdownItem,
-                            selectedPlan?.id === item.id && styles.dropdownItemSelected
-                          ]}
-                          activeOpacity={0.7}
-                        >
-                          <View style={styles.dropdownItemContent}>
-                            {selectedPlan?.id === item.id && (
-                              <MaterialCommunityIcons name="check-circle" size={20} color="#7B2CBF" />
-                            )}
-                            <View style={styles.dropdownItemText}>
-                              <Text variant="bodyLarge" style={[
-                                styles.dropdownItemTitle,
-                                selectedPlan?.id === item.id && styles.dropdownItemTitleSelected
-                              ]}>
-                                {item.name}
-                              </Text>
-                              <Text variant="bodySmall" style={styles.dropdownItemDetails}>
-                                ₹{item.price.toFixed(2)} • {item.durationDays} days
-                              </Text>
+                      <ScrollView
+                        style={styles.dropdownScrollView}
+                        nestedScrollEnabled={true}
+                        showsVerticalScrollIndicator={true}
+                        keyboardShouldPersistTaps="handled"
+                      >
+                        {availablePlans.map((item) => (
+                          <TouchableOpacity
+                            key={item.id}
+                            onPress={() => handlePlanSelect(item.id.toString())}
+                            style={[
+                              styles.dropdownItem,
+                              selectedPlan?.id === item.id && styles.dropdownItemSelected
+                            ]}
+                            activeOpacity={0.7}
+                          >
+                            <View style={styles.dropdownItemContent}>
+                              {selectedPlan?.id === item.id && (
+                                <MaterialCommunityIcons name="check-circle" size={20} color="#7B2CBF" />
+                              )}
+                              <View style={styles.dropdownItemText}>
+                                <Text variant="bodyLarge" style={[
+                                  styles.dropdownItemTitle,
+                                  selectedPlan?.id === item.id && styles.dropdownItemTitleSelected
+                                ]}>
+                                  {item.name}
+                                </Text>
+                                <Text variant="bodySmall" style={styles.dropdownItemDetails}>
+                                  ₹{item.price.toFixed(2)} • {item.durationDays} days
+                                </Text>
+                              </View>
                             </View>
-                          </View>
-                        </TouchableOpacity>
-                      ))}
+                          </TouchableOpacity>
+                        ))}
+                      </ScrollView>
                     </View>
                   )}
                 </View>
@@ -635,14 +642,16 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     borderWidth: 1.5,
     borderColor: '#E5E7EB',
-    marginTop: -10,
+    marginTop: 4,
     marginBottom: 10,
-    elevation: 4,
+    elevation: 5,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
     zIndex: 1000,
+    position: 'relative',
+  },
+  dropdownScrollView: {
+    maxHeight: 200,
   },
   dropdownItem: {
     padding: 14,

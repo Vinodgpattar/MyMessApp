@@ -3,13 +3,14 @@ import { View, StyleSheet, ScrollView, Modal as RNModal, TouchableOpacity } from
 import { Text, TextInput, Button, Card, Snackbar } from 'react-native-paper'
 import { MaterialCommunityIcons } from '@expo/vector-icons'
 import { format, addDays } from 'date-fns'
+import { SimpleDatePicker } from '@/components/shared/SimpleDatePicker'
 import type { Student } from '@/lib/students'
 
 interface ExtendPlanModalProps {
   visible: boolean
   onDismiss: () => void
   student: Student | null
-  onExtend: (data: { days: number; paid: number; extendFromToday: boolean }) => void
+  onExtend: (data: { days: number; startDate: string; paid: number }) => void
   loading?: boolean
 }
 
@@ -21,14 +22,26 @@ export function ExtendPlanModal({
   loading = false,
 }: ExtendPlanModalProps) {
   const [days, setDays] = useState('30')
+  const [startDate, setStartDate] = useState('')
   const [paid, setPaid] = useState('0')
   const [error, setError] = useState('')
   const [showConfirm, setShowConfirm] = useState(false)
 
+  // Helper function to format date as YYYY-MM-DD in local timezone
+  const formatDateLocal = (date: Date): string => {
+    const year = date.getFullYear()
+    const month = String(date.getMonth() + 1).padStart(2, '0')
+    const day = String(date.getDate()).padStart(2, '0')
+    return `${year}-${month}-${day}`
+  }
+
   useEffect(() => {
     if (visible && student) {
       // Reset form when modal opens
+      const today = new Date()
+      today.setHours(0, 0, 0, 0)
       setDays('30')
+      setStartDate(formatDateLocal(today))
       setPaid('0')
       setError('')
       setShowConfirm(false)
@@ -41,20 +54,23 @@ export function ExtendPlanModal({
   const paidNum = parseFloat(paid) || 0
   const today = new Date()
   today.setHours(0, 0, 0, 0)
-  const currentEndDate = new Date(student.endDate)
-  currentEndDate.setHours(0, 0, 0, 0)
   
-  // Always extend from today (toggle removed)
-  const extendFromToday = true
-  const startDate = today
-  const newEndDate = addDays(startDate, daysNum)
-  
-  // Calculate additional cost if extending from today (when plan hasn't expired yet)
-  const planPrice = student.price
-  const planDuration = student.plan.durationDays
-  const pricePerDay = planDuration > 0 ? planPrice / planDuration : 0
-  const daysOverlap = currentEndDate > today ? Math.ceil((currentEndDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24)) : 0
-  const additionalCost = daysOverlap > 0 && daysNum > daysOverlap ? Math.round(pricePerDay * (daysNum - daysOverlap) * 100) / 100 : 0
+  // Calculate new end date: startDate + days
+  // Validate startDate before creating Date object
+  let startDateObj: Date
+  if (startDate) {
+    const parsed = new Date(startDate)
+    if (isNaN(parsed.getTime())) {
+      // Invalid date, use today as fallback
+      startDateObj = new Date(today)
+    } else {
+      startDateObj = parsed
+    }
+  } else {
+    startDateObj = new Date(today)
+  }
+  startDateObj.setHours(0, 0, 0, 0)
+  const newEndDate = daysNum > 0 && startDate && !isNaN(startDateObj.getTime()) ? addDays(startDateObj, daysNum) : null
 
   const validate = (): boolean => {
     if (daysNum <= 0) {
@@ -63,6 +79,16 @@ export function ExtendPlanModal({
     }
     if (daysNum > 365) {
       setError('Days cannot exceed 365')
+      return false
+    }
+    if (!startDate) {
+      setError('Please select a start date')
+      return false
+    }
+    const selectedDate = new Date(startDate)
+    selectedDate.setHours(0, 0, 0, 0)
+    if (selectedDate < today) {
+      setError('Start date cannot be in the past')
       return false
     }
     if (paidNum < 0) {
@@ -82,13 +108,12 @@ export function ExtendPlanModal({
     setShowConfirm(false)
     onExtend({
       days: daysNum,
+      startDate: startDate,
       paid: paidNum,
-      extendFromToday: true, // Always true now
     })
   }
 
-  const totalAmount = additionalCost
-  const balanceAfterPayment = totalAmount - paidNum - student.credit
+  // No extension cost calculation - manager can enter any payment amount
 
   return (
     <>
@@ -121,6 +146,23 @@ export function ExtendPlanModal({
             nestedScrollEnabled={true}
           >
             <View style={styles.cardContentInner}>
+
+              {/* Start Date Input */}
+              <View style={styles.inputGroup}>
+                <Text variant="labelMedium" style={styles.label}>
+                  Start Date *
+                </Text>
+                <SimpleDatePicker
+                  value={startDate || formatDateLocal(today)}
+                  onChange={(date) => {
+                    setStartDate(date)
+                    setError('')
+                  }}
+                  label="Select Start Date"
+                  minimumDate={today}
+                  disabled={loading}
+                />
+              </View>
 
               {/* Days Input */}
               <View style={styles.inputRow}>
@@ -166,7 +208,7 @@ export function ExtendPlanModal({
                     contentStyle={styles.inputContent}
                     left={<TextInput.Icon icon="currency-inr" size={18} />}
                     disabled={loading}
-                    error={error.includes('Payment') || error.includes('payment')}
+                    error={error.includes('Payment') || error.includes('payment') || error.includes('exceeds')}
                   />
                 </View>
               </View>
@@ -231,36 +273,27 @@ export function ExtendPlanModal({
               ) : null}
 
               {/* Summary - Compact */}
-              {daysNum > 0 && (
+              {daysNum > 0 && startDate && newEndDate && (
                 <View style={styles.summaryCompact}>
                   <View style={styles.summaryRow}>
                     <Text variant="bodySmall" style={styles.summaryLabel}>
-                      New End:
+                      Start Date:
                     </Text>
-                    <Text variant="bodySmall" style={[styles.summaryValue, styles.highlightValue]}>
-                      {format(newEndDate, 'dd MMM yyyy')}
+                    <Text variant="bodySmall" style={styles.summaryValue}>
+                      {startDate ? (() => {
+                        const date = new Date(startDate)
+                        return isNaN(date.getTime()) ? startDate : format(date, 'dd MMM yyyy')
+                      })() : 'Not selected'}
                     </Text>
                   </View>
-                  {additionalCost > 0 && (
-                    <View style={styles.summaryRow}>
-                      <Text variant="bodySmall" style={styles.summaryLabel}>
-                        Cost:
-                      </Text>
-                      <Text variant="bodySmall" style={styles.summaryValue}>
-                        ₹{additionalCost.toFixed(2)}
-                      </Text>
-                    </View>
-                  )}
-                  {balanceAfterPayment > 0 && (
-                    <View style={styles.summaryRow}>
-                      <Text variant="bodySmall" style={styles.balanceLabel}>
-                        Balance:
-                      </Text>
-                      <Text variant="bodySmall" style={styles.balanceValue}>
-                        ₹{balanceAfterPayment.toFixed(2)}
-                      </Text>
-                    </View>
-                  )}
+                  <View style={styles.summaryRow}>
+                    <Text variant="bodySmall" style={styles.summaryLabel}>
+                      New End Date:
+                    </Text>
+                    <Text variant="bodySmall" style={[styles.summaryValue, styles.highlightValue]}>
+                      {newEndDate && !isNaN(newEndDate.getTime()) ? format(newEndDate, 'dd MMM yyyy') : 'Invalid date'}
+                    </Text>
+                  </View>
                 </View>
               )}
 
@@ -313,10 +346,13 @@ export function ExtendPlanModal({
                   </Text>
                 </View>
                 <Text variant="bodyMedium" style={styles.confirmText}>
-                  Extend plan by {daysNum} days starting from {format(today, 'dd MMM yyyy')}?
+                  Extend plan by {daysNum} days starting from {startDate ? (() => {
+                    const date = new Date(startDate)
+                    return isNaN(date.getTime()) ? startDate : format(date, 'dd MMM yyyy')
+                  })() : format(today, 'dd MMM yyyy')}?
                 </Text>
                 <Text variant="bodySmall" style={styles.confirmSubtext}>
-                  New end date: {format(newEndDate, 'dd MMM yyyy')}
+                  New end date: {newEndDate && !isNaN(newEndDate.getTime()) ? format(newEndDate, 'dd MMM yyyy') : 'Invalid date'}
                 </Text>
                 <View style={styles.confirmActions}>
                   <Button

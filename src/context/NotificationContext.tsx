@@ -41,6 +41,7 @@ interface NotificationContextType {
   notificationHistory: NotificationHistoryItem[]
   addToHistory: (notification: NotificationHistoryItem) => Promise<void>
   clearHistory: () => Promise<void>
+  deleteFromHistory: (id: string) => Promise<void>
 }
 
 const NotificationContext = createContext<NotificationContextType | undefined>(undefined)
@@ -278,12 +279,24 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
       const stored = await AsyncStorage.getItem(NOTIFICATION_HISTORY_KEY)
       if (stored) {
         const parsed = JSON.parse(stored)
-        // Convert timestamp strings back to Date objects
-        const history = parsed.map((item: any) => ({
-          ...item,
-          timestamp: new Date(item.timestamp),
-        }))
+        const now = Date.now()
+        const twoDaysMs = 2 * 24 * 60 * 60 * 1000
+
+        // Convert timestamp strings back to Date objects and auto-delete entries older than 2 days
+        const history = parsed
+          .map((item: any) => ({
+            ...item,
+            timestamp: new Date(item.timestamp),
+          }))
+          .filter((item: NotificationHistoryItem) => {
+            const ts = item.timestamp instanceof Date ? item.timestamp.getTime() : new Date(item.timestamp).getTime()
+            return now - ts <= twoDaysMs
+          })
+
         setNotificationHistory(history)
+
+        // Persist cleaned history without old entries
+        await AsyncStorage.setItem(NOTIFICATION_HISTORY_KEY, JSON.stringify(history))
       }
     } catch (error) {
       // Error loading notification history - use empty array
@@ -301,8 +314,17 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
 
   const addToHistory = async (notification: NotificationHistoryItem) => {
     try {
+      const now = Date.now()
+      const twoDaysMs = 2 * 24 * 60 * 60 * 1000
+
       const currentHistory = [...notificationHistory, notification]
-      // Keep only last MAX_HISTORY_ITEMS
+        // Auto-delete any items older than 2 days
+        .filter((item) => {
+          const ts = item.timestamp instanceof Date ? item.timestamp.getTime() : new Date(item.timestamp).getTime()
+          return now - ts <= twoDaysMs
+        })
+
+      // Keep only last MAX_HISTORY_ITEMS, newest first
       const trimmedHistory = currentHistory
         .sort((a, b) => b.timestamp.getTime() - a.timestamp.getTime())
         .slice(0, MAX_HISTORY_ITEMS)
@@ -321,6 +343,15 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
     }
   }
 
+  const deleteFromHistory = async (id: string) => {
+    try {
+      const filtered = notificationHistory.filter((item) => item.id !== id)
+      await saveHistory(filtered)
+    } catch (error) {
+      // Error deleting from history - silently fail
+    }
+  }
+
   return (
     <NotificationContext.Provider
       value={{
@@ -335,6 +366,7 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
         notificationHistory,
         addToHistory,
         clearHistory,
+        deleteFromHistory,
       }}
     >
       {children}

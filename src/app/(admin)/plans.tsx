@@ -1,6 +1,6 @@
 import React, { useState, useMemo } from 'react'
 import { View, StyleSheet, ScrollView, RefreshControl, KeyboardAvoidingView, Platform, TouchableOpacity } from 'react-native'
-import { Text, FAB, ActivityIndicator, Searchbar, Card } from 'react-native-paper'
+import { Text, FAB, ActivityIndicator, Searchbar, Card, Button } from 'react-native-paper'
 import { useRouter } from 'expo-router'
 import { MaterialCommunityIcons } from '@expo/vector-icons'
 import { usePlans, useDeletePlan } from '@/hooks/usePlans'

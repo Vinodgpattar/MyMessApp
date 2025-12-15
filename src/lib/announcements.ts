@@ -228,12 +228,185 @@ export async function getAdminAnnouncements(): Promise<{ announcements: AdminAnn
       return { announcements: [], error: new Error(error.message) }
     }
 
-    return { announcements: (data || []) as AdminAnnouncement[], error: null }
+    // Get read counts and total sent counts for each announcement
+    const announcementsWithStats = await Promise.all(
+      (data || []).map(async (announcement) => {
+        const { count: readCount } = await supabase
+          .from('AdminNotificationRecipient')
+          .select('*', { count: 'exact', head: true })
+          .eq('notificationId', announcement.id)
+          .eq('read', true)
+
+        const { count: totalSent } = await supabase
+          .from('AdminNotificationRecipient')
+          .select('*', { count: 'exact', head: true })
+          .eq('notificationId', announcement.id)
+
+        return {
+          ...announcement,
+          readCount: readCount || 0,
+          totalSent: totalSent || 0,
+        } as AdminAnnouncement
+      })
+    )
+
+    return { announcements: announcementsWithStats, error: null }
   } catch (error) {
     logger.error('Error fetching announcements', error as Error)
     return {
       announcements: [],
       error: error instanceof Error ? error : new Error('Failed to fetch announcements'),
+    }
+  }
+}
+
+/**
+ * Fetch a single admin announcement by ID
+ */
+export async function getAdminAnnouncementById(
+  id: number
+): Promise<{ announcement: AdminAnnouncement | null; error: null } | { announcement: null; error: Error }> {
+  try {
+    const { data: { session } } = await supabase.auth.getSession()
+    if (!session) {
+      return { announcement: null, error: new Error('Not authenticated') }
+    }
+
+    const { data, error } = await supabase
+      .from('AdminNotification')
+      .select('*')
+      .eq('id', id)
+      .eq('sentBy', session.user.id)
+      .single()
+
+    if (error) {
+      return { announcement: null, error: new Error(error.message) }
+    }
+
+    if (!data) {
+      return { announcement: null, error: new Error('Announcement not found') }
+    }
+
+    // Get read count and total sent count
+    const { count: readCount } = await supabase
+      .from('AdminNotificationRecipient')
+      .select('*', { count: 'exact', head: true })
+      .eq('notificationId', id)
+      .eq('read', true)
+
+    const { count: totalSent } = await supabase
+      .from('AdminNotificationRecipient')
+      .select('*', { count: 'exact', head: true })
+      .eq('notificationId', id)
+
+    return {
+      announcement: {
+        ...data,
+        readCount: readCount || 0,
+        totalSent: totalSent || 0,
+      } as AdminAnnouncement,
+      error: null,
+    }
+  } catch (error) {
+    logger.error('Error fetching announcement by ID', error as Error)
+    return {
+      announcement: null,
+      error: error instanceof Error ? error : new Error('Failed to fetch announcement'),
+    }
+  }
+}
+
+/**
+ * Delete a single admin announcement (and its image) by ID
+ */
+export async function deleteAdminAnnouncement(
+  id: number
+): Promise<{ success: boolean; error?: Error }> {
+  try {
+    // Get current record to read imageUrl
+    const { data, error: fetchError } = await supabase
+      .from('AdminNotification')
+      .select('imageUrl')
+      .eq('id', id)
+      .single()
+
+    if (fetchError) {
+      return { success: false, error: new Error(fetchError.message) }
+    }
+
+    const imageUrl = data?.imageUrl as string | null
+
+    // Delete DB row
+    const { error: deleteError } = await supabase
+      .from('AdminNotification')
+      .delete()
+      .eq('id', id)
+
+    if (deleteError) {
+      return { success: false, error: new Error(deleteError.message) }
+    }
+
+    // Best-effort: delete image from storage if we can extract the path
+    // URL format: .../storage/v1/object/public/notification-images/path/to/file.jpg
+    if (imageUrl) {
+      try {
+        const match = imageUrl.match(/\/notification-images\/(.+)$/)
+        if (match && match[1]) {
+          const filePath = match[1]
+          await supabase.storage.from('notification-images').remove([filePath])
+        }
+      } catch (e) {
+        logger.warn('Failed to delete announcement image from storage', e as Error, { id, imageUrl })
+      }
+    }
+
+    return { success: true }
+  } catch (error) {
+    return {
+      success: false,
+      error: error instanceof Error ? error : new Error('Failed to delete announcement'),
+    }
+  }
+}
+
+/**
+ * Fetch admin announcements and auto-delete ones older than 3 days
+ */
+export async function getAdminAnnouncementsWithCleanup(): Promise<
+  { announcements: AdminAnnouncement[]; error: null } |
+  { announcements: []; error: Error }
+> {
+  try {
+    const base = await getAdminAnnouncements()
+    if (base.error) return base
+
+    const now = new Date()
+    const threeDaysAgo = new Date(now.getTime() - 3 * 24 * 60 * 60 * 1000)
+
+    const recent: AdminAnnouncement[] = []
+    const expired: AdminAnnouncement[] = []
+
+    for (const a of base.announcements) {
+      const sent = a.sentAt ? new Date(a.sentAt) : null
+      if (sent && sent < threeDaysAgo) {
+        expired.push(a)
+      } else {
+        recent.push(a)
+      }
+    }
+
+    // Fire-and-forget delete for expired ones (cleanup)
+    expired.forEach((a) => {
+      deleteAdminAnnouncement(a.id).catch((error) => {
+        logger.warn('Failed to auto-delete old announcement', error as Error, { id: a.id })
+      })
+    })
+
+    return { announcements: recent, error: null }
+  } catch (error) {
+    return {
+      announcements: [],
+      error: error instanceof Error ? error : new Error('Failed to load announcements'),
     }
   }
 }

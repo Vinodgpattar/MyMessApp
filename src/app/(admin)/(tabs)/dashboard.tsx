@@ -218,4 +218,7 @@ const styles = StyleSheet.create({
     color: '#1A1A1A',
     marginBottom: 12,
   },
+  bottomPadding: {
+    height: 20,
+  },
 })

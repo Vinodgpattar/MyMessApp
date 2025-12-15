@@ -5,9 +5,9 @@
     "version": "1.0.0",
     "orientation": "portrait",
     "userInterfaceStyle": "light",
-    "icon": "./assets/icon.png",
+    "icon": "./assets/messicon.png",
     "splash": {
-      "image": "./assets/icon.png",
+      "image": "./assets/messicon.png",
       "backgroundColor": "#7B2CBF",
       "resizeMode": "contain"
     },
@@ -31,7 +31,7 @@
       [
         "expo-splash-screen",
         {
-          "image": "./assets/icon.png",
+          "image": "./assets/messicon.png",
           "resizeMode": "contain",
           "backgroundColor": "#7B2CBF"
         }
@@ -56,8 +56,16 @@
     "extra": {
       "router": {},
       "eas": {
-        "projectId": "9638ea31-1cb0-4587-bb69-fe880ca6c02b"
+        "projectId": "bba34f1c-e0b4-46dd-9aea-aab2a4eb3629"
       }
+    },
+    "updates": {
+      "fallbackToCacheTimeout": 0,
+      "checkAutomatically": "ON_LOAD",
+      "url": "https://u.expo.dev/bba34f1c-e0b4-46dd-9aea-aab2a4eb3629"
+    },
+    "runtimeVersion": {
+      "policy": "appVersion"
     }
   }
 }

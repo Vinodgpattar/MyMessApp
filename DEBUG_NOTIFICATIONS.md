@@ -147,3 +147,5 @@ INSERT INTO "AdminNotificationRecipient" ("notificationId", "studentId", read, "
 VALUES (NOTIFICATION_ID, STUDENT_ID, false, false);
 ```
 
+
+

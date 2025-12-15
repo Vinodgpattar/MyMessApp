@@ -159,8 +159,11 @@ export default function StudentNotificationsScreen() {
   }
 
   const handleNotificationPress = async (notification: AdminNotification) => {
+    // Navigate to detail screen first (for smoother UX)
+    router.push(`/(student)/(tabs)/notification-details?id=${notification.id}`)
+
+    // Then mark as read if needed
     if (!notification.read) {
-      // Mark as read
       try {
         await supabase
           .from('AdminNotificationRecipient')
